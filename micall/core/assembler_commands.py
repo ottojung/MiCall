@@ -23,8 +23,10 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-o", str(work / "megahit")]], result
     if name == "abyss":
         result = work / "assembly-contigs.fa"
+        # Build only the MiCall-consumed contigs, not unused scaffold stages.
         return [["abyss-pe", "k=41", "B=128M", "j=2",
-                 "name=assembly", f"in={first} {second}"]], result
+                 "name=assembly", f"in={first} {second}",
+                 result.name]], result
     if name == "spades":
         result = work / "spades/contigs.fasta"
         return [["spades.py", "-1", first, "-2", second,
