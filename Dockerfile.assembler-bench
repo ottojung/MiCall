@@ -1,6 +1,7 @@
 # Dedicated MiCall fork image: one assembler only.
 ARG FORK_BASE_IMAGE
 FROM ${FORK_BASE_IMAGE}
+ARG FORK_BASE_IMAGE
 ARG MICALL_FORK_SOURCE_COMMIT
 ARG MICALL_FORK_BASE_COMMIT
 RUN apt-get update && apt-get install -y --no-install-recommends megahit=1.2.9-4 && rm -rf /var/lib/apt/lists/*
