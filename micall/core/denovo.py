@@ -1,4 +1,5 @@
 import argparse
+import os
 import logging
 from pathlib import Path
 from typing import Optional
@@ -28,7 +29,7 @@ def count_fasta_sequences(file_path: Path) -> int:
 
 
 @cached("denovo[iva]")
-def run_subprocess(
+def run_iva_subprocess(
     fastq1: Path,
     fastq2: Path,
     merged_contigs_csv: Optional[Path],
@@ -82,6 +83,19 @@ def run_subprocess(
         contigs_fasta_path.touch()
 
     return contigs_fasta_path
+
+
+def run_subprocess(
+    fastq1: Path,
+    fastq2: Path,
+    merged_contigs_csv: Optional[Path],
+) -> Path:
+    """Choose a committed assembler integration without patching MiCall code."""
+    selected = os.environ.get("MICALL_DENOVO_ASSEMBLER", IVA)
+    if selected == IVA:
+        return run_iva_subprocess(fastq1, fastq2, merged_contigs_csv)
+    from micall.core.assembler_dispatch import run_external_assembler
+    return run_external_assembler(selected, fastq1, fastq2)
 
 
 def denovo(

@@ -24,7 +24,7 @@
 # If you omit the `--target` tag altogether, `docker build` will build
 # the development image.
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS production
 
 LABEL maintainer="BC CfE in HIV/AIDS <https://github.com/cfe-lab/MiCall>"
 
@@ -111,6 +111,12 @@ ENV OPENBLAS_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 ENV NUMEXPR_NUM_THREADS=1
+
+# This base is built only from a clean, exact ottojung/MiCall commit.
+ARG MICALL_FORK_SOURCE_COMMIT
+RUN test "${#MICALL_FORK_SOURCE_COMMIT}" -eq 40
+LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
+LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
 
 WORKDIR /data
 ENTRYPOINT ["micall", "analyze"]
