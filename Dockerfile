@@ -24,7 +24,7 @@
 # If you omit the `--target` tag altogether, `docker build` will build
 # the development image.
 
-FROM debian:bookworm-slim AS production
+FROM docker.io/library/debian@sha256:c67e92c8099ba22853ab4cfda7cfb494d253d6012ca82dee98ba8976772af018 AS production
 
 LABEL maintainer="BC CfE in HIV/AIDS <https://github.com/cfe-lab/MiCall>"
 
