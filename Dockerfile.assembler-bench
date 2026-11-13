@@ -2,6 +2,7 @@
 ARG FORK_BASE_IMAGE
 FROM quay.io/biocontainers/haploflow@sha256:eaf03733093a99a290d6b30af3a4b95543d9accfe63ff37851a0e5de6c02396d AS tool_donor
 FROM ${FORK_BASE_IMAGE}
+ARG FORK_BASE_IMAGE
 ARG MICALL_FORK_SOURCE_COMMIT
 ARG MICALL_FORK_BASE_COMMIT
 COPY --from=tool_donor /usr/local/bin/haploflow /usr/local/bin/haploflow
