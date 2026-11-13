@@ -9,7 +9,7 @@ import pytest
 from micall.core.assembler_commands import ASSEMBLERS, command_steps
 from micall.core.assembler_dispatch import run_external_assembler
 from micall.core.assembler_inputs import interleave_pairs
-from micall.core.denovo import run_subprocess
+from micall.core.denovo import run_subprocess, iva_subprocess_environment
 from micall.utils.work_dir import WorkDir
 
 
@@ -46,6 +46,18 @@ def test_haploflow_consumes_both_mates_in_order(tmp_path):
         b.write("")
     with pytest.raises(ValueError, match="unequal"):
         interleave_pairs(first, second, tmp_path/"bad.fq")
+
+
+def test_iva_compatibility_uses_pinned_binary_only_for_iva(tmp_path):
+    compatible = tmp_path / "legacy-samtools" / "samtools"
+    assert iva_subprocess_environment(compatible) is None
+    compatible.parent.mkdir()
+    compatible.write_text("#!/bin/sh\n")
+    original = os.environ.get("PATH", "")
+    runtime = iva_subprocess_environment(compatible)
+    assert runtime["PATH"].startswith(str(compatible.parent)+os.pathsep)
+    assert runtime["PATH"].endswith(original)
+    assert os.environ.get("PATH", "") == original
 
 
 def test_default_iva_uses_original_subprocess(tmp_path):

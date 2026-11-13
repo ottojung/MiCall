@@ -42,3 +42,15 @@ must additionally record the exact image ID and tool binary digest.
 These commands are the source of test images, *not* a waiver of
 independent fork-build verification, original read-data integrity,
 or scientific qualification. A source label alone is insufficient.
+
+
+## IVA and samtools interface compatibility
+
+IVA 1.0.8 invokes legacy samtools sort INPUT PREFIX; samtools 1.16.1,
+installed as a dependency of other tools, does not accept that syntax.
+All contender images retain two versions: modern system samtools for
+MiCall/other assemblers, and samtools 1.3.1 copied from the exact same
+fork-built MiCall base into /opt/micall-iva-compat/samtools. Only the
+committed IVA invocation prepends that directory to its child PATH.
+The container build checks the pinned binary version. No global
+downgrade, runtime monkeypatch or reference/truth inputs are involved.

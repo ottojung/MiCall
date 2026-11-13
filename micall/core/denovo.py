@@ -28,6 +28,16 @@ def count_fasta_sequences(file_path: Path) -> int:
         return sum(1 for line in file if line.startswith(">"))
 
 
+def iva_subprocess_environment(
+    compatible_samtools: Path = Path("/opt/micall-iva-compat/samtools"),
+):
+    """Pin IVA's historic samtools grammar without changing other tools."""
+    if not compatible_samtools.is_file():
+        return None
+    return {**os.environ, "PATH": str(compatible_samtools.parent)
+            + os.pathsep + os.environ.get("PATH", "")}
+
+
 @cached("denovo[iva]")
 def run_iva_subprocess(
     fastq1: Path,
@@ -74,7 +84,9 @@ def run_iva_subprocess(
             iva_args.extend(["--contigs", str(seeds_fasta_path), "--make_new_seeds"])
     iva_args.append(str(iva_out_path))
     try:
-        subprocess.run(iva_args, check=True, stdout=PIPE, stderr=STDOUT)
+        subprocess.run(
+            iva_args, check=True, stdout=PIPE, stderr=STDOUT,
+            env=iva_subprocess_environment())
     except CalledProcessError as ex:
         output = ex.output and ex.output.decode("UTF8")
         if output != "Failed to make first seed. Cannot continue\n":
