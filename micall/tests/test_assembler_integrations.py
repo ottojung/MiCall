@@ -34,6 +34,16 @@ def test_every_supported_external_has_explicit_known_output(tmp_path):
         command_steps("benchmark-tuned", left, right, tmp_path)
 
 
+def test_abyss_builds_only_consumed_contig_target(tmp_path):
+    first, second = tmp_path/"r1.fastq", tmp_path/"r2.fastq"
+    steps, output = command_steps("abyss", first, second, tmp_path)
+    assert output == tmp_path/"assembly-contigs.fa"
+    assert len(steps) == 1
+    assert steps[0][0] == "abyss-pe"
+    assert steps[0][-1] == output.name
+    assert "scaffolds" not in " ".join(steps[0])
+
+
 def test_haploflow_consumes_both_mates_in_order(tmp_path):
     first, second, dest = (tmp_path/name for name in ("r1.gz", "r2.gz", "both.fq"))
     with gzip.open(first, "wt") as a:
