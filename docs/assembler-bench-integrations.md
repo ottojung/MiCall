@@ -42,3 +42,20 @@ must additionally record the exact image ID and tool binary digest.
 These commands are the source of test images, *not* a waiver of
 independent fork-build verification, original read-data integrity,
 or scientific qualification. A source label alone is insufficient.
+
+
+## ABySS contig-only goal
+
+ABySS uses a Makefile driver. Its implicit default also runs
+distance-estimation and summary stages that are not used by
+MiCall's downstream remapping. On the source-attested HXB2 clonal
+case clonal-s006, the default aborted in DistanceEst after
+creating assembly-contigs.fa, incorrectly losing valid contigs.
+The committed invocation now explicitly requests this output as
+the Makefile goal, with the same input reads and k-mer settings.
+It does not create a reference-supported result, omit required
+assembly stages, substitute a fabricated contig, or hide command
+errors. If the requested target or MiCall downstream fails, the
+candidate still fails. All seven candidate images must be rebuilt
+from this one new canonical MiCall source baseline before a new
+qualification run can use this profile.
