@@ -6,6 +6,9 @@ ARG MICALL_FORK_SOURCE_COMMIT
 ARG MICALL_FORK_BASE_COMMIT
 RUN apt-get update && apt-get install -y --no-install-recommends abyss=2.3.5+dfsg-2 && rm -rf /var/lib/apt/lists/*
 RUN command -v abyss-pe
+# Install the exact committed tool profile; a source label alone is not enough.
+COPY micall/core/assembler_commands.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py
+RUN /opt/venv/bin/python -c "from pathlib import Path; from micall.core.assembler_commands import command_steps; steps, out = command_steps('abyss', Path('/r1'), Path('/r2'), Path('/results')); assert steps[0][-1] == out.name == 'assembly-contigs.fa'"
 ENV MICALL_DENOVO_ASSEMBLER=abyss
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
