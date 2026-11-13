@@ -34,6 +34,17 @@ def test_every_supported_external_has_explicit_known_output(tmp_path):
         command_steps("benchmark-tuned", left, right, tmp_path)
 
 
+def test_abyss_runs_the_same_contig_target_that_micall_consumes(tmp_path):
+    left, right = tmp_path/"r1", tmp_path/"r2"
+    steps, target = command_steps("abyss", left, right, tmp_path)
+    assert target == tmp_path/"assembly-contigs.fa"
+    assert steps == [["abyss-pe", "k=41", "B=128M", "j=2",
+                      "name=assembly", f"in={left} {right}",
+                      "assembly-contigs.fa"]]
+    # Do not require ABySS's unnecessary downstream distance scaffolding.
+    assert steps[0][-1] == target.name
+
+
 def test_haploflow_consumes_both_mates_in_order(tmp_path):
     first, second, dest = (tmp_path/name for name in ("r1.gz", "r2.gz", "both.fq"))
     with gzip.open(first, "wt") as a:
