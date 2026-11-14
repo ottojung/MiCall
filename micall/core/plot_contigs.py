@@ -445,25 +445,31 @@ def build_stitcher_figure(logs: Iterable[events.EventType]) -> Figure:
     rstrip_map: Dict[int, int] = {}
 
     def remove_intermediate_edges(graph):
-        tr_cl = transitive_closure(graph)
+        # This input is already a transitive closure; recomputing it
+        # repeatedly traverses every path for no additional information.
+        reachable = {node: set(descendants) for node, descendants in graph.items()}
         ret = {}
         for parent, children in graph.items():
-            lst = []
-            for child in children:
-                if all(other not in tr_cl.get(child, []) for other in children):
-                    lst.append(child)
-            ret[parent] = lst
+            siblings = set(children)
+            ret[parent] = [
+                child for child in children
+                if siblings.isdisjoint(reachable.get(child, set()))
+            ]
         return ret
 
     def remove_transitive_edges(graph):
-        tr_cl = transitive_closure(graph)
+        reachable = {
+            node: set(descendants)
+            for node, descendants in transitive_closure(graph).items()
+        }
         ret = {}
         for parent, children in graph.items():
             lst = []
             for child in children:
-                is_transitive = any(child in tr_cl.get(other_node, [])
-                                    for other_node in children
-                                    if other_node != child)
+                is_transitive = any(
+                    child in reachable.get(other, set())
+                    for other in children if other != child
+                )
                 if not is_transitive:
                     lst.append(child)
             ret[parent] = lst
@@ -480,11 +486,17 @@ def build_stitcher_figure(logs: Iterable[events.EventType]) -> Figure:
         return ret
 
     def get_transitive_children(recur, lst, graph, current):
-        for child in graph.get(current, []):
-            if child not in recur:
+        # Explicit depth-first traversal preserves child order without
+        # recursion depth or the cost of revisiting shared ancestors.
+        stack = [iter(graph.get(current, ()))]
+        while stack:
+            child = next(stack[-1], None)
+            if child is None:
+                stack.pop()
+            elif child not in recur:
                 recur.add(child)
                 lst.append(child)
-                get_transitive_children(recur, lst, graph, child)
+                stack.append(iter(graph.get(child, ())))
 
     def transitive_closure(graph):
         ret = {}
