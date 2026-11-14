@@ -400,6 +400,16 @@ def build_coverage_figure(genome_coverage_csv, blast_csv=None, use_concordance=F
     return f
 
 
+def close_alive_set(alive_set: Set[int], parent_graph: Dict[int, List[int]]) -> None:
+    """Include all ancestors, even through cycles, without revisiting nodes."""
+    frontier = list(alive_set)
+    while frontier:
+        for parent in parent_graph.get(frontier.pop(), ()):
+            if parent not in alive_set:
+                alive_set.add(parent)
+                frontier.append(parent)
+
+
 def plot_stitcher_coverage(logs: Iterable[events.EventType], genome_coverage: Path):
     with ReferencefullStitcherContext.stage():
         f = build_stitcher_figure(logs)
@@ -646,14 +656,8 @@ def build_stitcher_figure(logs: Iterable[events.EventType]) -> Figure:
     notransitive_parent_graph = remove_transitive_edges(complete_parent_graph)
     nodup_parent_graph = remove_duplicate_edges(notransitive_parent_graph)
 
-    # Close alive set by parents
-    def extend_alive(contig_id):
-        alive_set.add(contig_id)
-        for parent_id in nodup_parent_graph.get(contig_id, []):
-            extend_alive(parent_id)
-
-    for contig_id in alive_set.copy():
-        extend_alive(contig_id)
+    # Include the ancestry of every retained contig exactly once.
+    close_alive_set(alive_set, nodup_parent_graph)
 
     parent_graph: Dict[int, List[int]] = {}
     for contig_id in nodup_parent_graph:
