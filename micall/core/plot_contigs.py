@@ -705,10 +705,13 @@ def build_stitcher_figure(logs: Iterable[events.EventType]) -> Figure:
         if len(parents) > 1:
             children_join_points.append(contig_id)
 
-    def set_query_position(contig_id: int) -> None:
-        contig = contig_map[contig_id]
-        children_ids = children_graph.get(contig.id, [])
+    positioned = set()
 
+    def set_query_position(contig_id: int) -> None:
+        if contig_id in positioned:
+            return
+        positioned.add(contig_id)
+        contig = contig_map[contig_id]
         def copy_from_parent(contig: AlignedContig, parent_id: int) -> None:
             if parent_id in query_position_map:
                 (original_q_st, original_q_ei) = query_position_map[parent_id]
@@ -734,11 +737,15 @@ def build_stitcher_figure(logs: Iterable[events.EventType]) -> Figure:
                 else:
                     query_position_map[contig_id] = (contig.alignment.q_st, contig.alignment.q_ei)
 
-        for child_id in children_ids:
-            set_query_position(child_id)
-
-    for contig_id in sorted_roots:
-        set_query_position(contig_id)
+    # Children are handled once in depth-first order, even with shared
+    # ancestry or cyclic graph edges.
+    visit = list(reversed(sorted_roots))
+    while visit:
+        current_id = visit.pop()
+        if current_id in positioned:
+            continue
+        set_query_position(current_id)
+        visit.extend(reversed(children_graph.get(current_id, [])))
 
     def copy_takes_one_side(edge_table, overlap_xtake_map, overlap_xparent_map, overlap_xsibling, xstrip_set):
         for parent in edge_table:
