@@ -768,27 +768,35 @@ def map_to_contigs(fastq1,
         with open(samfile) as f:
             for fields in splitter.split(f):
                 write_remap_row(remap_writer, fields)
-        for rname, (split_file1, split_file2) in splitter.splits.items():
-            refseqs = {rname: conseqs[rname]}
-            unmapped_count += map_to_reference(split_file1.name,
-                                               split_file2.name,
-                                               refseqs,
-                                               reffile,
-                                               samfile,
-                                               unmapped1,
-                                               unmapped2,
-                                               bowtie2,
-                                               bowtie2_build,
-                                               raw_count,
-                                               rdgopen,
-                                               rfgopen,
-                                               split_counts,
-                                               stderr,
-                                               callback)
-            new_counts.update(split_counts)
-            with open(samfile, 'r') as f:
-                for fields in splitter.walk(f):
-                    write_remap_row(remap_writer, fields)
+        if len(splitter.splits) >= 8 and callback is None and debug_file_prefix is None:
+            from micall.core.remap_parallel import remap_splits
+
+            unmapped_count += remap_splits(
+                splitter.splits, conseqs, work_path, bowtie2, bowtie2_build,
+                raw_count, rdgopen, rfgopen, stderr, unmapped1, unmapped2,
+                new_counts, remap_writer)
+        else:
+            for rname, (split_file1, split_file2) in splitter.splits.items():
+                refseqs = {rname: conseqs[rname]}
+                unmapped_count += map_to_reference(split_file1.name,
+                                                   split_file2.name,
+                                                   refseqs,
+                                                   reffile,
+                                                   samfile,
+                                                   unmapped1,
+                                                   unmapped2,
+                                                   bowtie2,
+                                                   bowtie2_build,
+                                                   raw_count,
+                                                   rdgopen,
+                                                   rfgopen,
+                                                   split_counts,
+                                                   stderr,
+                                                   callback)
+                new_counts.update(split_counts)
+                with open(samfile, 'r') as f:
+                    for fields in splitter.walk(f):
+                        write_remap_row(remap_writer, fields)
 
     write_contig_sequences(conseqs, remap_conseq_csv)
     write_remap_counts(remap_counts_writer,
