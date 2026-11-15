@@ -23,9 +23,16 @@ def run_external_assembler(name: str, first: Path, second: Path) -> Path:
     steps, output = command_steps(name, first, second, workspace)
     with (workspace / "assembler.log").open("wb") as log:
         for argv in steps:
-            subprocess.run(argv, check=True, cwd=workspace,
-                           env={} if name == "ivanka" else None,
-                           stdout=log, stderr=subprocess.STDOUT)
+            try:
+                subprocess.run(argv, check=True, cwd=workspace,
+                               env={} if name == "ivanka" else None,
+                               stdout=log, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError:
+                if name != "abyss":
+                    raise
+                from micall.core.assembler_abyss_recovery import recover
+                if not recover(workspace, output):
+                    raise
     if not output.is_file():
         raise RuntimeError(f"{name} succeeded but produced no contigs FASTA")
     return output
