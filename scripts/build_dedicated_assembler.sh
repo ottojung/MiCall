@@ -11,7 +11,7 @@ esac
 test -z "$(git status --porcelain)" || { echo dirty-source >&2; exit 1; }
 name=$(cat assembler-bench/selected)
 branch=$(git symbolic-ref --short HEAD)
-test "$branch" = "bench/assembler-$name" || { echo wrong-branch >&2; exit 1; }
+test "$branch" = "bench/assembler-$name-nolinks-20261115" || { echo wrong-branch >&2; exit 1; }
 sha=$(git rev-parse HEAD)
 baseline=$(cat assembler-bench/baseline-commit)
 test "${#sha}" -eq 40
