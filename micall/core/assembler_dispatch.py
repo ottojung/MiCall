@@ -5,6 +5,7 @@ import subprocess
 from tempfile import mkdtemp
 
 from micall.core.assembler_commands import command_steps
+from micall.core.assembler_abyss_unlinked import recover as recover_abyss
 from micall.core.assembler_inputs import interleave_pairs
 from micall.utils.work_dir import WorkDir
 
@@ -23,9 +24,14 @@ def run_external_assembler(name: str, first: Path, second: Path) -> Path:
     steps, output = command_steps(name, first, second, workspace)
     with (workspace / "assembler.log").open("wb") as log:
         for argv in steps:
-            subprocess.run(argv, check=True, cwd=workspace,
-                           env={} if name == "ivanka" else None,
-                           stdout=log, stderr=subprocess.STDOUT)
+            try:
+                subprocess.run(argv, check=True, cwd=workspace,
+                               env={} if name == "ivanka" else None,
+                               stdout=log, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as error:
+                if name != "abyss" or not recover_abyss(
+                        workspace, output, error, log):
+                    raise
     if not output.is_file():
         raise RuntimeError(f"{name} succeeded but produced no contigs FASTA")
     return output
