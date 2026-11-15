@@ -1092,8 +1092,9 @@ class MixedReferenceSplitter(object):
                     if match is None:
                         unmatched[qname] = fields
                     else:
-                        mapq = fields[4]
-                        match_mapq = match[4]
+                        # SAM MAPQ is decimal, not a lexicographic string.
+                        mapq = int(fields[4])
+                        match_mapq = int(match[4])
                         if mapq > match_mapq:
                             rname = fields[2]
                         elif mapq < match_mapq:
