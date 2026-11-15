@@ -1,0 +1,17 @@
+# Diagnostic fork-built MiCall image, intentionally not the seven-way qualified baseline.
+ARG FORK_BASE_IMAGE
+ARG IVANKA_IMAGE
+FROM ${IVANKA_IMAGE} AS rust_donor
+FROM ${FORK_BASE_IMAGE}
+ARG FORK_BASE_IMAGE
+ARG MICALL_FORK_SOURCE_COMMIT
+ARG IVANKA_SOURCE_COMMIT
+COPY --from=rust_donor /usr/local/bin/ivanka /usr/local/bin/ivanka
+COPY micall/utils/referenceless_contig_stitcher.py /opt/venv/lib/python3.12/site-packages/micall/utils/referenceless_contig_stitcher.py
+RUN /opt/venv/bin/python -c 'from micall.utils.referenceless_contig_stitcher import _cannot_phase_long_overlap; assert _cannot_phase_long_overlap(4437, 4145, 8042, 150, True)'
+ENV MICALL_DENOVO_ASSEMBLER=ivanka
+LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
+LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
+LABEL org.ottojung.ivanka.source-commit="${IVANKA_SOURCE_COMMIT}"
+LABEL org.ottojung.micall.experimental-stitcher="unphased-long-repeat-guard"
+LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
