@@ -359,6 +359,14 @@ caller in `try_combine_contigs`):
 * if support is below `minimum_read_depth`, the merge is rejected
   (emitting `ReadSupportRejected` in debug2).
 
+Until original *paired-molecule* placements are used for validation, the
+joiner also refuses overlaps that collapse more than twice the configured read
+length. Individual 150nt read placements in a 540nt repeat cannot establish
+which unique flanks belong to the same molecule; multiplicity-weighted depth
+across the repeated sequence is not a phase certificate. The safeguard applies
+only when read validation is enabled and does not change explicit unvalidated
+API behavior.
+
 Full contracts — cut-spanning definitions, window geometry,
 counting model including the accepted placement-times-multiplicity
 overcounting tradeoff, disabled states (`read_index is None` or
