@@ -20,6 +20,7 @@ import typing
 from Bio import SeqIO
 
 from micall.utils.externals import CutAdapt
+from micall.core.terminal_adapter import shared_terminal_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -185,13 +186,18 @@ def cut_adapters(original_fastq1: Path,
     script_path = Path(__file__).parent.parent / 'data'
     adapter_files = [str(script_path / f'adapters_read{i}.fasta')
                      for i in (1, 2)]
-    run_cut_adapt(['--quiet',
-                   '-a', 'file:' + adapter_files[0],
-                   '-A', 'file:' + adapter_files[1],
-                   '-o', str(trimmed_fastq1),
-                   '-p', str(trimmed_fastq2),
-                   str(original_fastq1),
-                   str(original_fastq2)])
+    adapters = ['--quiet',
+                '-a', 'file:' + adapter_files[0],
+                '-A', 'file:' + adapter_files[1]]
+    inferred = shared_terminal_adapter(original_fastq1, original_fastq2)
+    if inferred is not None:
+        # Unexpected paired-mate tails are inferred from this library, not
+        # hardcoded viral truth or an external reference sequence.
+        adapters.extend(('-a', inferred, '-A', inferred))
+    run_cut_adapt(adapters + [
+        '-o', str(trimmed_fastq1),
+        '-p', str(trimmed_fastq2),
+        str(original_fastq1), str(original_fastq2)])
 
 
 def cut_left_primers(original_fastq1: Path,
