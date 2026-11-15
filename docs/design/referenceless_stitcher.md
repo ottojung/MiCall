@@ -506,3 +506,24 @@ either algorithm. One trades structural caution for completeness;
 the other trades completeness for reference independence. See
 [Contig Stitching in MiCall](stitcher.md) for guidance on which
 question each output answers.
+
+
+### Independent paired-read adapter pretrimming (experimental fork)
+
+The normal MiCall cutadapt sources contain distinct R1 and R2 adapter
+catalogues. If both mates of a library carry the *same* unexpected technical
+tail, one mate may be trimmed and the other left untrimmed. That asymmetry
+misleads the reference-free assembler and read-backed stitcher before either
+has an opportunity to examine the original pair.
+
+In the experimental fork, the trimming stage can infer an additional
+technical suffix from the library's **censored original paired mates**:
+at least 100 pairs; a suffix 18–24nt long supported in at least 90% of
+each mate independently; and at least 64 distinct immediately preceding
+16nt contexts. Both mate IDs must match in source order. The discovered
+sequence, if any, is appended as another candidate adapter **to both
+mate-specific cutadapt catalogues**, preserving the normal adapter/primer
+settings and all read-pair identities. It cannot read virus references,
+synthetic truth, labels, or alignment scores. For other libraries it adds
+no adapter and leaves all normal trimming untouched. All diagnostic
+input/output filenames and original fastq byte hashes remain preserved.

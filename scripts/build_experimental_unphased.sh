@@ -6,10 +6,10 @@ case "$(git remote get-url origin)" in
   https://github.com/ottojung/MiCall|https://github.com/ottojung/MiCall.git|git@github.com:ottojung/MiCall.git) ;;
   *) echo "requires canonical MiCall fork" >&2; exit 1 ;;
 esac
-test "$(git symbolic-ref --short HEAD)" = experiment/reject-unphased-long-overlap-20261115
+test "$(git symbolic-ref --short HEAD)" = experiment/detect-shared-tail-before-cutadapt-20261115
 test -z "$(git status --porcelain)"
 source_sha=$(git rev-parse HEAD)
-test "$(git ls-remote --heads origin refs/heads/experiment/reject-unphased-long-overlap-20261115 |cut -f1)" = "$source_sha"
+test "$(git ls-remote --heads origin refs/heads/experiment/detect-shared-tail-before-cutadapt-20261115 |cut -f1)" = "$source_sha"
 base=${FORK_BASE_IMAGE:?frozen unmodified fork image ID required}
 donor=${IVANKA_IMAGE:?frozen Rust tool donor ID required}
 test "$(podman image inspect --format '{{.Id}}' "$base")" = "$base"

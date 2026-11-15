@@ -8,10 +8,13 @@ ARG MICALL_FORK_SOURCE_COMMIT
 ARG IVANKA_SOURCE_COMMIT
 COPY --from=rust_donor /usr/local/bin/ivanka /usr/local/bin/ivanka
 COPY micall/utils/referenceless_contig_stitcher.py /opt/venv/lib/python3.12/site-packages/micall/utils/referenceless_contig_stitcher.py
+COPY micall/core/terminal_adapter.py /opt/venv/lib/python3.12/site-packages/micall/core/terminal_adapter.py
+COPY micall/core/trim_fastqs.py /opt/venv/lib/python3.12/site-packages/micall/core/trim_fastqs.py
 RUN /opt/venv/bin/python -c 'from micall.utils.referenceless_contig_stitcher import _cannot_phase_long_overlap; assert _cannot_phase_long_overlap(4437, 4145, 8042, 150, True)'
 ENV MICALL_DENOVO_ASSEMBLER=ivanka
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
 LABEL org.ottojung.ivanka.source-commit="${IVANKA_SOURCE_COMMIT}"
 LABEL org.ottojung.micall.experimental-stitcher="unphased-long-repeat-guard"
+LABEL org.ottojung.micall.experimental-paired-trimming="read-derived-shared-terminal-suffix"
 LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
