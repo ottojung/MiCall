@@ -1,0 +1,24 @@
+name: Check post-merge frozen MiCall baseline
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  frozen-baseline:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce frozen source after protected tag is created
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=micall-prebenchmark-frozen-v1
+          if git rev-parse --verify -q "refs/tags/$baseline^{commit}" >/dev/null; then
+            python3 scripts/check_frozen_micall.py --frozen-tag "$baseline"
+          else
+            echo "PRE_FREEZE: protected baseline tag not created yet."
+            echo "Do not use this CI pass as evidence of a frozen baseline."
+          fi

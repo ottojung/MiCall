@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest.mock import patch
 import subprocess
 
-import pytest
 
 from micall.core.denovo import run_iva_subprocess
 from micall.utils.work_dir import WorkDir
