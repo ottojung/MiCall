@@ -1,4 +1,5 @@
 import argparse
+import os
 import logging
 from pathlib import Path
 from typing import Optional
@@ -28,7 +29,7 @@ def count_fasta_sequences(file_path: Path) -> int:
 
 
 @cached("denovo[iva]")
-def run_subprocess(
+def run_iva_subprocess(
     fastq1: Path,
     fastq2: Path,
     merged_contigs_csv: Optional[Path],
@@ -56,6 +57,12 @@ def run_subprocess(
     iva_out_path = tmp_dir / "iva_out"
     contigs_fasta_path = iva_out_path / "contigs.fasta"
     iva_args = [IVA, "--fr", str(joined_path), "-t", "2"]
+    if (joined_path.stat().st_size == 0
+            and fastq1.stat().st_size > 0 and fastq2.stat().st_size > 0):
+        # merge-mates --interleave emits *only overlapping pairs*. When
+        # there are none, preserve all original trimmed paired reads for IVA.
+        logger.warning("IVA_NO_OVERLAP_PAIRED_FASTQ_FALLBACK")
+        iva_args = [IVA, "-f", str(fastq1), "-r", str(fastq2), "-t", "2"]
     if merged_contigs_csv is not None:
         seeds_fasta_path = tmp_dir / "seeds.fasta"
         with open(seeds_fasta_path, "w") as seeds_fasta, \
@@ -79,9 +86,24 @@ def run_subprocess(
         if output != "Failed to make first seed. Cannot continue\n":
             logger.warning("iva failed to assemble.", exc_info=True)
             logger.warning(output)
+        # Some IVA failures happen before it creates its output directory.
+        iva_out_path.mkdir(parents=True, exist_ok=True)
         contigs_fasta_path.touch()
 
     return contigs_fasta_path
+
+
+def run_subprocess(
+    fastq1: Path,
+    fastq2: Path,
+    merged_contigs_csv: Optional[Path],
+) -> Path:
+    """Choose a committed assembler integration without patching MiCall code."""
+    selected = os.environ.get("MICALL_DENOVO_ASSEMBLER", IVA)
+    if selected == IVA:
+        return run_iva_subprocess(fastq1, fastq2, merged_contigs_csv)
+    from micall.core.assembler_dispatch import run_external_assembler
+    return run_external_assembler(selected, fastq1, fastq2)
 
 
 def denovo(
