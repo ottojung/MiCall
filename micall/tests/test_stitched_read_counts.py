@@ -95,7 +95,3 @@ class StitchedReadCountsTests(unittest.TestCase):
         source = StringIO("type,count\nremap 1-a,12\nremap-final 1-a,15\n")
         projected = project_stitched_counts(original, stitched, source)
         self.assertEqual(read_remap_counts(projected), {"1-a": 15})
-
-
-if __name__ == "__main__":
-    unittest.main()

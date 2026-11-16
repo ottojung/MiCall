@@ -36,7 +36,3 @@ class LongUnphasedOverlapTests(unittest.TestCase):
                 StringIO(out.getvalue()), 'fasta'))
         self.assertEqual(assembled_lengths(None), [1800])
         self.assertEqual(assembled_lengths(reads), [1050, 1290])
-
-
-if __name__ == '__main__':
-    unittest.main()

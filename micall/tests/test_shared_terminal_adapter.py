@@ -64,7 +64,3 @@ class PairedTerminalSuffixTests(unittest.TestCase):
             content[0]="@wrong 2:N:0:1\n"
             second.write_text("".join(content))
             self.assertIsNone(shared_terminal_adapter(first,second))
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -39,7 +39,3 @@ class AncestryClosureTests(unittest.TestCase):
         alive = set()
         close_alive_set(alive, {2: [3]})
         self.assertFalse(alive)
-
-
-if __name__ == "__main__":
-    unittest.main()
