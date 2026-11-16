@@ -98,9 +98,14 @@ git tag -as micall-prebenchmark-frozen-v1 -m "Frozen MiCall shared code before a
 git push origin micall-prebenchmark-frozen-v1
 ```
 
-Enable GitHub branch protection requiring the `frozen-baseline` check
-from `.github/workflows/frozen-micall.yml`, prevent tag deletion or
-retargeting, and require human code review of assembler integrations.
+When reauthoring, install the prepared
+`docs/bench/frozen-micall-workflow-example.yml` as
+`.github/workflows/frozen-micall.yml`. The credential used to publish
+this preparation branch cannot modify GitHub workflows, so the workflow
+**is not active** in this branch. Then enable GitHub branch protection
+requiring its `frozen-baseline` check, protect the annotated tag from
+deletion or retargeting, and require human code review of assembler
+integrations.
 The check explicitly says **PRE_FREEZE** until the tag exists; its
 pre-tag green result does NOT imply the project is frozen.
 
