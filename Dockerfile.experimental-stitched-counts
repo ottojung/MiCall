@@ -1,0 +1,29 @@
+# Diagnostic source overlay; source-committed in the ottojung/MiCall fork.
+# The downstream tree differs from the common repaired base only at these files.
+ARG FORK_BASE_IMAGE
+ARG IVANKA_IMAGE
+FROM ${IVANKA_IMAGE} AS rust_donor
+FROM ${FORK_BASE_IMAGE} AS corrected_common
+ARG MICALL_FORK_SOURCE_COMMIT
+ARG FORK_BASE_IMAGE
+COPY micall/drivers/sample.py /opt/venv/lib/python3.12/site-packages/micall/drivers/sample.py
+COPY micall/utils/stitched_read_counts.py /opt/venv/lib/python3.12/site-packages/micall/utils/stitched_read_counts.py
+RUN /opt/venv/bin/python -c 'from micall.utils.stitched_read_counts import project_stitched_counts; from micall.drivers.sample import Sample'
+LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
+LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
+LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
+LABEL org.ottojung.micall.common-baseline-commit="74f60e7be6248bdf5019498276036a0ebd339006"
+LABEL org.ottojung.micall.source-branch="fix/stitched-read-count-provenance-20261116"
+LABEL org.ottojung.micall.build-kind="experimental-build-time-overlay-not-qualified"
+
+FROM corrected_common AS iva
+ENV MICALL_DENOVO_ASSEMBLER=iva
+LABEL org.ottojung.micall.assembler="iva"
+
+FROM corrected_common AS ivanka
+ARG IVANKA_SOURCE_COMMIT
+COPY --from=rust_donor /usr/local/bin/ivanka /usr/local/bin/ivanka
+RUN ivanka --help >/dev/null
+ENV MICALL_DENOVO_ASSEMBLER=ivanka
+LABEL org.ottojung.micall.assembler="ivanka"
+LABEL org.ottojung.ivanka.source-commit="${IVANKA_SOURCE_COMMIT}"
