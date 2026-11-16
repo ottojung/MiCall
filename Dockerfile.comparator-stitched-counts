@@ -1,0 +1,18 @@
+# Source-pinned shared MiCall correction, comparator only; not release-qualified.
+ARG PREVIOUS_ASSEMBLER_IMAGE
+FROM ${PREVIOUS_ASSEMBLER_IMAGE}
+ARG MICALL_FORK_SOURCE_COMMIT
+ARG PREVIOUS_ASSEMBLER_IMAGE
+COPY micall/drivers/sample.py /opt/venv/lib/python3.12/site-packages/micall/drivers/sample.py
+COPY micall/utils/stitched_read_counts.py /opt/venv/lib/python3.12/site-packages/micall/utils/stitched_read_counts.py
+RUN /opt/venv/bin/python -c 'from micall.utils.stitched_read_counts import project_stitched_counts; from micall.drivers.sample import Sample'
+ENV MICALL_DENOVO_ASSEMBLER=spades
+LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
+LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
+LABEL org.ottojung.micall.patched-source-commit="e18ebccf9e68d5ee9e01206e7b69045f2be672f3"
+LABEL org.ottojung.micall.common-baseline-commit="74f60e7be6248bdf5019498276036a0ebd339006"
+LABEL org.ottojung.micall.common-base="4a4aa1b92e48a7fdcb7fef2b886d62c0aa4603ff2a58659c7d32932d5fdeea93"
+LABEL org.ottojung.micall.previous-image-id="${PREVIOUS_ASSEMBLER_IMAGE}"
+LABEL org.ottojung.micall.source-branch="bench/assembler-spades-stitched-counts-20261116"
+LABEL org.ottojung.micall.assembler="spades"
+LABEL org.ottojung.micall.build-kind="source-pinned-stitched-counts-comparator-diagnostic"
