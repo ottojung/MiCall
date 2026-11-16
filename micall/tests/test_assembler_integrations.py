@@ -92,14 +92,15 @@ def test_external_execution_respects_invariant_argv_and_env(tmp_path):
 def test_failed_assembler_does_not_fabricate_success(tmp_path):
     from subprocess import CalledProcessError
     left, right = tmp_path/"r1", tmp_path/"r2"
-    with WorkDir.using(tmp_path):
-        with patch("micall.core.assembler_dispatch.subprocess.run",
-                   side_effect=CalledProcessError(7, ["megahit"])):
-            with pytest.raises(CalledProcessError):
-                run_external_assembler("megahit", left, right)
+    with WorkDir.using(tmp_path), patch(
+        "micall.core.assembler_dispatch.subprocess.run",
+        side_effect=CalledProcessError(7, ["megahit"])
+    ), pytest.raises(CalledProcessError):
+        run_external_assembler("megahit", left, right)
 
 
 def test_invalid_choice_never_executes_any_program(tmp_path):
-    with patch.dict(os.environ, {"MICALL_DENOVO_ASSEMBLER": "unknown"}):
-        with pytest.raises(ValueError, match="unsupported"):
-            run_subprocess(tmp_path/"r1", tmp_path/"r2", None)
+    with patch.dict(os.environ, {
+        "MICALL_DENOVO_ASSEMBLER": "unknown"
+    }), pytest.raises(ValueError, match="unsupported"):
+        run_subprocess(tmp_path/"r1", tmp_path/"r2", None)

@@ -82,6 +82,5 @@ def test_non_abyss_failure_is_not_recovered(tmp_path):
     with WorkDir.using(tmp_path), patch(
         "micall.core.assembler_dispatch.subprocess.run",
         side_effect=CalledProcessError(3, ["megahit"])
-    ):
-        with pytest.raises(CalledProcessError):
-            run_external_assembler("megahit", tmp_path / "R1", tmp_path / "R2")
+    ), pytest.raises(CalledProcessError):
+        run_external_assembler("megahit", tmp_path / "R1", tmp_path / "R2")
