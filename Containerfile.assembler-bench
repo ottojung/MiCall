@@ -10,7 +10,6 @@ COPY pyproject.toml uv.lock README.md /opt/micall/
 COPY micall /opt/micall/micall
 RUN /opt/uv-home/.local/bin/uv sync --frozen --managed-python --project /opt/micall --extra basespace --extra watcher --extra utils --no-editable --reinstall-package micall
 RUN /opt/venv/bin/micall make_blast_db
-RUN /opt/venv/bin/python -c "import micall.core.denovo as d; print(d.__file__)"
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="$MICALL_SOURCE_COMMIT"
 LABEL org.ottojung.micall.frozen-upstream-master="$MICALL_BASE_COMMIT"
