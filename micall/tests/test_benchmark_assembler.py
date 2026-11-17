@@ -47,14 +47,16 @@ def test_missing_fasta_is_rejected(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
-    with WorkDir.using(tmp_path):
-        with pytest.raises(RuntimeError, match="without the expected FASTA"):
-            assemble(first, second, None)
+    with WorkDir.using(tmp_path), pytest.raises(
+        RuntimeError, match="without the expected FASTA"
+    ):
+        assemble(first, second, None)
 
 
 
 def test_velvet_rejects_mismatched_compression(tmp_path):
     first, second = sample_reads(tmp_path)
-    with WorkDir.using(tmp_path):
-        with pytest.raises(ValueError, match="equally compressed"):
-            assemble(first, second.with_suffix(".fastq.gz"), None)
+    with WorkDir.using(tmp_path), pytest.raises(
+        ValueError, match="equally compressed"
+    ):
+        assemble(first, second.with_suffix(".fastq.gz"), None)
