@@ -13,3 +13,8 @@ expensive sample benchmark. Record branch SHA, source tree, tool donor image ID,
 final image ID, and smoke-test results in a single immutable run manifest.
 
 This assembler accepts paired sample reads but has no matching seeded-contig input.
+
+The final runtime image contains only the clinical MiCall runtime and the
+selected assembler integration. MiCall test source and any embedded
+build-time checker are excluded. Execute all smoke tests, source/binary
+attestation, and benchmark preflight on the host before freezing image IDs.
