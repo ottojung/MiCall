@@ -47,6 +47,7 @@ def test_missing_fasta_is_rejected(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
-    with WorkDir.using(tmp_path):
-        with pytest.raises(RuntimeError, match="without the expected FASTA"):
-            assemble(first, second, None)
+    with WorkDir.using(tmp_path), pytest.raises(
+        RuntimeError, match="without the expected FASTA"
+    ):
+        assemble(first, second, None)
