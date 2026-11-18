@@ -1444,33 +1444,167 @@ def _candidate_indices_for_query(
     return candidates
 
 
+class _O2Index:
+    """Incremental k-mer index for o2_loop.
+
+    Contigs are stored in an append-only list with tombstones for removed
+    entries. This preserves the logical scan order used by try_combine_1:
+    live entries stay in their original relative order and merged contigs are
+    appended at the end, exactly matching the previous dict-del/insert
+    behavior. Posting lists may contain stale (dead) indices; callers must
+    filter by ``alive``. Index rebuilds are avoided by appending only.
+    """
+
+    __slots__ = (
+        "contigs", "alive", "is_short", "short_indices", "postings",
+        "kmers_cache", "get_overlap_cache", "cutoffs_cache", "align_cache",
+        "_seen", "_touched",
+    )
+
+    def __init__(self, contigs: Iterable[ContigWithAligner], ctx, touch_ids: bool = False) -> None:
+        self.kmers_cache = ctx.kmers_cache
+        self.get_overlap_cache = ctx.get_overlap_cache
+        self.cutoffs_cache = ctx.cutoffs_cache
+        self.align_cache = ctx.align_cache
+        self.contigs = list(contigs)
+        if touch_ids:
+            # Preserve historical contig-id generation order: the old o2_loop
+            # built a dict keyed by contig.id, touching every initial id in
+            # input order before any merge search.
+            for c in self.contigs:
+                _ = c.id
+        self.alive = [True] * len(self.contigs)
+        self.is_short = [len(c.seq) < KMER_SIZE for c in self.contigs]
+        self.short_indices = [i for i, s in enumerate(self.is_short) if s]
+        self.postings: Dict[str, list] = {}
+        self._seen = bytearray(len(self.contigs))
+        self._touched: list = []
+        for i, c in enumerate(self.contigs):
+            if self.is_short[i]:
+                continue
+            for kmer in get_kmers(self.kmers_cache, c.seq):
+                lst = self.postings.get(kmer)
+                if lst is None:
+                    self.postings[kmer] = [i]
+                else:
+                    lst.append(i)
+
+    def _ensure_seen_size(self) -> None:
+        n = len(self.contigs)
+        if len(self._seen) < n:
+            self._seen.extend(b'\x00' * (n - len(self._seen)))
+
+    def remove(self, idx: int) -> None:
+        self.alive[idx] = False
+
+    def add(self, contig: ContigWithAligner, touch_id: bool = False) -> None:
+        if touch_id:
+            # Preserve historical id-generation point: old o2_loop inserted the
+            # merged contig into its id-keyed dict immediately after merge.
+            _ = contig.id
+        idx = len(self.contigs)
+        self.contigs.append(contig)
+        self.alive.append(True)
+        short = len(contig.seq) < KMER_SIZE
+        self.is_short.append(short)
+        if short:
+            self.short_indices.append(idx)
+            return
+        for kmer in get_kmers(self.kmers_cache, contig.seq):
+            lst = self.postings.get(kmer)
+            if lst is None:
+                self.postings[kmer] = [idx]
+            else:
+                lst.append(idx)
+
+    def live_values(self) -> list:
+        return [c for c, a in zip(self.contigs, self.alive) if a]
+
+    def candidate_indices(self, query_idx: int):
+        """Live candidate indices that may pass get_overlap()'s k-mer gate.
+
+        Returns None when the query is exempt (all live contigs eligible).
+        Otherwise returns a sorted list of live indices in ascending order,
+        deduplicated, including every live short contig.
+        """
+        if self.is_short[query_idx]:
+            return None
+        self._ensure_seen_size()
+        seen = self._seen
+        touched = self._touched
+        # Clear marks from previous query.
+        if touched:
+            for j in touched:
+                seen[j] = 0
+            touched.clear()
+
+        for kmer in get_kmers(self.kmers_cache, self.contigs[query_idx].seq):
+            lst = self.postings.get(kmer)
+            if not lst:
+                continue
+            for j in lst:
+                if not seen[j]:
+                    seen[j] = 1
+                    touched.append(j)
+
+        if touched:
+            hit_indices = [j for j in touched if self.alive[j]]
+            hit_indices.sort()
+        else:
+            hit_indices = []
+
+        live_shorts = [j for j in self.short_indices if self.alive[j]]
+        if not live_shorts:
+            return hit_indices
+        if not hit_indices:
+            return live_shorts
+
+        # Merge two ascending lists (disjoint: short contigs have no postings).
+        out = []
+        a = 0
+        b = 0
+        len_shorts = len(live_shorts)
+        len_hits = len(hit_indices)
+        while a < len_shorts and b < len_hits:
+            sa = live_shorts[a]
+            hb = hit_indices[b]
+            if sa < hb:
+                out.append(sa)
+                a += 1
+            elif hb < sa:
+                out.append(hb)
+                b += 1
+            else:
+                out.append(sa)
+                a += 1
+                b += 1
+        if a < len_shorts:
+            out.extend(live_shorts[a:])
+        if b < len_hits:
+            out.extend(hit_indices[b:])
+        return out
+
+
 def try_combine_1(
     contigs: Iterable[ContigWithAligner],
 ) -> Optional[Tuple[ContigWithAligner, ContigWithAligner, ContigWithAligner]]:
     is_debug2 = ReferencelessStitcherContext.get().is_debug2
     ctx = ReferencelessStitcherContext.get()
-    get_overlap_cache = ctx.get_overlap_cache
-    kmers_cache = ctx.kmers_cache
-    cutoffs_cache = ctx.cutoffs_cache
-    align_cache = ctx.align_cache
+    index = _O2Index(contigs, ctx)
 
-    contigs_list = tuple(contigs)
-    if len(contigs_list) < 2:
-        return None
-    is_short, short_indices, postings = _build_kmer_candidate_index(
-        contigs_list, kmers_cache
-    )
-
+    contigs_list = index.contigs
     for i, first in enumerate(contigs_list):
-        candidates = _candidate_indices_for_query(
-            first, is_short, short_indices, postings, kmers_cache
-        )
+        if not index.alive[i]:
+            continue
+        candidates = index.candidate_indices(i)
         # Every candidate is a necessary-condition superset of a potential
         # merge. Sorted indices exactly preserve the old first-success order.
-        eligible = range(len(contigs_list)) if candidates is None else sorted(candidates)
+        eligible = (j for j in range(len(contigs_list)) if index.alive[j]) if candidates is None else candidates
         for j in eligible:
+            if i == j or not index.alive[j]:
+                continue
             second = contigs_list[j]
-            if i == j or first.id >= second.id:
+            if first.id >= second.id:
                 continue
 
             pool = Pool.empty(1, ACCEPTABLE_STITCHING_SCORE())
@@ -1480,10 +1614,10 @@ def try_combine_1(
                 pool=pool,
                 a=first,
                 b=second,
-                get_overlap_cache=get_overlap_cache,
-                kmers_cache=kmers_cache,
-                cutoffs_cache=cutoffs_cache,
-                align_cache=align_cache,
+                get_overlap_cache=index.get_overlap_cache,
+                kmers_cache=index.kmers_cache,
+                cutoffs_cache=index.cutoffs_cache,
+                align_cache=index.align_cache,
             )
             if result is not None:
                 combined, _additional_score, _covered_input = result
@@ -1492,22 +1626,58 @@ def try_combine_1(
     return None
 
 
+def _try_combine_1_indexed(index: _O2Index) -> Optional[Tuple[int, int, ContigWithAligner]]:
+    is_debug2 = ReferencelessStitcherContext.get().is_debug2
+    contigs_list = index.contigs
+    for i in range(len(contigs_list)):
+        if not index.alive[i]:
+            continue
+        first = contigs_list[i]
+        candidates = index.candidate_indices(i)
+        eligible = (j for j in range(len(contigs_list)) if index.alive[j]) if candidates is None else candidates
+        for j in eligible:
+            if i == j or not index.alive[j]:
+                continue
+            second = contigs_list[j]
+            if first.id >= second.id:
+                continue
+
+            pool = Pool.empty(1, ACCEPTABLE_STITCHING_SCORE())
+            result = try_combine_contigs(
+                is_debug2=is_debug2,
+                current_score=SCORE_NOTHING,
+                pool=pool,
+                a=first,
+                b=second,
+                get_overlap_cache=index.get_overlap_cache,
+                kmers_cache=index.kmers_cache,
+                cutoffs_cache=index.cutoffs_cache,
+                align_cache=index.align_cache,
+            )
+            if result is not None:
+                combined, _additional_score, _covered_input = result
+                return i, j, combined
+
+    return None
+
+
 def o2_loop(
     contigs: Iterable[ContigWithAligner],
 ) -> Iterator[ContigWithAligner]:
-    buf = {contig.id: contig for contig in contigs}
+    ctx = ReferencelessStitcherContext.get()
+    index = _O2Index(contigs, ctx, touch_ids=True)
 
     while True:
-        combination = try_combine_1(buf.values())
+        combination = _try_combine_1_indexed(index)
         if combination is None:
             break
 
-        (first, second, combined) = combination
-        del buf[first.id]
-        del buf[second.id]
-        buf[combined.id] = combined
+        i, j, combined = combination
+        index.remove(i)
+        index.remove(j)
+        index.add(combined, touch_id=True)
 
-    yield from sorted(buf.values(), key=contig_size_fun)
+    yield from sorted(index.live_values(), key=contig_size_fun)
 
 
 def stitch_consensus(
