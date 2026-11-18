@@ -6,33 +6,18 @@ import subprocess
 from micall.utils.work_dir import WorkDir
 
 
-def _abyss_produced_no_unitigs(work: Path) -> bool:
+def _empty_abyss_assembly(work: Path, output: Path,
+                          exc: subprocess.CalledProcessError) -> bool:
+    """Recognize the exact ABySS empty-graph assertion, not arbitrary errors."""
     unitigs = work / "assembly-1.fa"
-    if not unitigs.is_file():
-        return False
-    try:
-        text = unitigs.read_text()
-    except OSError:
-        return False
-    return '>' not in text
-
-
-def _empty_abyss_assembly(work: Path, output: Path, exc: subprocess.CalledProcessError) -> bool:
-    if output.is_file():
-        return False
-    if not _abyss_produced_no_unitigs(work):
+    if (exc.returncode != 2 or output.exists()
+            or not unitigs.is_file() or unitigs.stat().st_size != 0):
         return False
     log_path = work / "assembler.log"
-    try:
-        log_text = log_path.read_text(errors="replace")
-    except OSError:
-        log_text = ""
-    # abyss-rresolver-short asserts on an empty graph when bloom-dbg produced
-    # no unitigs; treat this as a valid no-contig assembly outcome.
-    if "num_vertices(g) > 0" in log_text:
-        return True
-    # Fallback: empty unitigs and failed pipeline before final output.
-    return exc.returncode != 0
+    if not log_path.is_file():
+        return False
+    return "Assertion `num_vertices(g) > 0' failed" in log_path.read_text(
+        errors="replace")
 
 
 def assemble(first: Path, second: Path, seeds: Path | None) -> Path:

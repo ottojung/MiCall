@@ -91,3 +91,32 @@ def test_failure_without_empty_unitigs_is_not_masked(tmp_path, monkeypatch):
     monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
     with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
         assemble(first, second, None)
+
+
+def test_empty_unitigs_with_unrelated_failure_are_not_masked(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def fake_run(argv, **kwargs):
+        work = Path(kwargs["cwd"])
+        (work / "assembly-1.fa").write_text("")
+        (work / "assembler.log").write_text("failure: missing dependency")
+        raise subprocess.CalledProcessError(2, argv)
+
+    monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
+    with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
+        assemble(first, second, None)
+
+
+def test_other_exit_code_is_not_masked_even_with_assertion(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def fake_run(argv, **kwargs):
+        work = Path(kwargs["cwd"])
+        (work / "assembly-1.fa").write_text("")
+        (work / "assembler.log").write_text(
+            "Assertion `num_vertices(g) > 0' failed\n")
+        raise subprocess.CalledProcessError(3, argv)
+
+    monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
+    with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
+        assemble(first, second, None)
