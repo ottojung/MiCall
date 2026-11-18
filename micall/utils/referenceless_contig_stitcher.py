@@ -1301,10 +1301,12 @@ def calc_extension(
     else:
         candidates = None
 
+    # The candidate indices preserve the original relative contig order.
+    # Iterate them directly rather than testing every index in a large pool.
+    eligible = range(len(contigs)) if candidates is None else sorted(candidates)
     ret = False
-    for i, contig in enumerate(contigs):
-        if candidates is not None and not contig_is_short[i] and i not in candidates:
-            continue
+    for i in eligible:
+        contig = contigs[i]
         new = extend_by_1(
             is_debug2, pool, path, contig,
             get_overlap_cache, kmers_cache, cutoffs_cache, align_cache
@@ -1463,16 +1465,12 @@ def try_combine_1(
         candidates = _candidate_indices_for_query(
             first, is_short, short_indices, postings, kmers_cache
         )
-        for j, second in enumerate(contigs_list):
-            if i == j:
-                continue
-            if first.id >= second.id:
-                continue
-            # Necessary condition for get_overlap(): if both contigs are long
-            # enough for the k-mer filter, they must share a k-mer. Skipping
-            # here cannot change behavior because get_overlap() would return
-            # None for the same pair.
-            if candidates is not None and not is_short[j] and j not in candidates:
+        # Every candidate is a necessary-condition superset of a potential
+        # merge. Sorted indices exactly preserve the old first-success order.
+        eligible = range(len(contigs_list)) if candidates is None else sorted(candidates)
+        for j in eligible:
+            second = contigs_list[j]
+            if i == j or first.id >= second.id:
                 continue
 
             pool = Pool.empty(1, ACCEPTABLE_STITCHING_SCORE())
