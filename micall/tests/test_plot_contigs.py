@@ -1330,3 +1330,81 @@ Concordance 0.0, 25.0, 50.0, 80.0, 90.0, 80.0, 70.0, 80.0x2, 70.0x3
     figure = build_coverage_figure(genome_coverage_csv, use_concordance=True)
 
     assert expected_figure == summarize_figure(figure, is_concordance=True)
+
+
+def _load_unmodified_plot_contigs():
+    """Load plot_contigs implementation from the 8458f9e5 base for equivalence checks."""
+    import subprocess
+    import types
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    source = subprocess.check_output(
+        ['git', 'show', '8458f9e5:micall/core/plot_contigs.py'],
+        cwd=repo,
+        text=True)
+    module = types.ModuleType('plot_contigs_unmodified_8458f9e5')
+    module.__file__ = str(repo / 'micall/core/plot_contigs.py')
+    exec(compile(source, module.__file__, 'exec'), module.__dict__)
+    return module
+
+
+def _make_stress_coverage_csv(contig_count=120, rows_per_contig=30):
+    out = StringIO()
+    out.write('contig,coordinates,query_nuc_pos,refseq_nuc_pos,ins,dels,'
+              'coverage,concordance,link\n')
+    for contig_index in range(1, contig_count + 1):
+        contig_name = f'{contig_index}-HCV-1a'
+        for pos in range(1, rows_per_contig + 1):
+            coverage = 5 + (pos % 4)
+            concordance = 1.0 if pos % 3 else 0.8
+            link = 'M'
+            if pos == 4:
+                # insertion-style row (no ref position) to exercise insertion ranges
+                out.write(f'{contig_name},HCV1A,{pos},,0,0,{coverage},{concordance},M\n')
+            elif pos == 7:
+                # unmatched position marker
+                out.write(f'{contig_name},HCV1A,{pos},{pos},0,0,{coverage},{concordance},U\n')
+            else:
+                out.write(f'{contig_name},HCV1A,{pos},{pos},0,0,{coverage},{concordance},{link}\n')
+    out.seek(0)
+    return out
+
+
+def test_build_coverage_figure_stress_equivalence_coverage():
+    """Golden equivalence against unmodified O(rows*contigs) implementation."""
+    old = _load_unmodified_plot_contigs()
+    csv_new = _make_stress_coverage_csv(contig_count=120, rows_per_contig=30)
+    csv_old = StringIO(csv_new.getvalue())
+
+    expected = summarize_figure(old.build_coverage_figure(csv_old))
+    actual = summarize_figure(build_coverage_figure(csv_new))
+
+    assert actual == expected
+
+
+def test_build_coverage_figure_stress_equivalence_concordance():
+    """Coverage-plot fix must preserve concordance output identically."""
+    old = _load_unmodified_plot_contigs()
+    csv_new = _make_stress_coverage_csv(contig_count=120, rows_per_contig=30)
+    csv_old = StringIO(csv_new.getvalue())
+
+    expected = summarize_figure(old.build_coverage_figure(csv_old, use_concordance=True),
+                                is_concordance=True)
+    actual = summarize_figure(build_coverage_figure(csv_new, use_concordance=True),
+                              is_concordance=True)
+
+    assert actual == expected
+
+
+def test_build_coverage_figure_stress_performance_indexed():
+    """Indexed build should handle a larger many-contig fixture quickly."""
+    import time
+
+    csv_input = _make_stress_coverage_csv(contig_count=600, rows_per_contig=40)
+    start = time.perf_counter()
+    summary = summarize_figure(build_coverage_figure(csv_input))
+    elapsed = time.perf_counter() - start
+
+    assert summary
+    assert elapsed < 15.0

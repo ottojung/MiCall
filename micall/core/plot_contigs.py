@@ -279,7 +279,10 @@ def build_coverage_figure(genome_coverage_csv, blast_csv=None, use_concordance=F
     coordinate_depths = Counter()
     contig_depths = Counter()
     contig_groups = defaultdict(set)  # {coordinates_name: {contig_name}}
+    contig_rows_index = {}  # {contig_name: [row_dicts]} first contiguous block
     reader = DictReader(genome_coverage_csv)
+    current_contig_name = None
+    current_contig_rows = None
     for row in reader:
         if row['query_nuc_pos']:
             query_nuc_pos = int(row['query_nuc_pos'])
@@ -293,6 +296,13 @@ def build_coverage_figure(genome_coverage_csv, blast_csv=None, use_concordance=F
         max_position = max(max_position, refseq_nuc_pos, query_nuc_pos)
         coordinates_name = row['coordinates']
         contig_name = row['contig']
+        if contig_name != current_contig_name:
+            if (current_contig_name is not None and
+                    current_contig_name not in contig_rows_index):
+                contig_rows_index[current_contig_name] = current_contig_rows
+            current_contig_name = contig_name
+            current_contig_rows = []
+        current_contig_rows.append(row)
         if row['coverage'] != '':
             row_coverage = int(row['coverage']) - int(row['dels'])
             coordinate_depths[coordinates_name] = max(
@@ -301,6 +311,9 @@ def build_coverage_figure(genome_coverage_csv, blast_csv=None, use_concordance=F
             contig_depths[contig_name] = max(contig_depths[contig_name],
                                              row_coverage)
         contig_groups[coordinates_name].add(contig_name)
+    if (current_contig_name is not None and
+            current_contig_name not in contig_rows_index):
+        contig_rows_index[current_contig_name] = current_contig_rows
     if '' in coordinate_depths:
         # Force partial contigs to come last.
         coordinate_depths[''] = -1
@@ -386,9 +399,7 @@ def build_coverage_figure(genome_coverage_csv, blast_csv=None, use_concordance=F
         if ref_arrows:
             f.add(ArrowGroup(ref_arrows))
         for contig_name in sorted_contig_names:
-            genome_coverage_csv.seek(0)
-            reader = DictReader(genome_coverage_csv)
-            build_contig(reader,
+            build_contig(contig_rows_index.get(contig_name, []),
                          f,
                          contig_name,
                          max_position,
@@ -1421,7 +1432,15 @@ def build_contig(reader,
     insertion_size = 0
     insertion_ranges = []  # [(start, end)]
     unmatched_ranges = []  # [[start, end]]
-    for contig_name2, contig_rows in groupby(reader, itemgetter('contig')):
+    if isinstance(reader, list):
+        contig_rows = reader
+        if not contig_rows:
+            return
+        contig_groups_iter = [(contig_name, contig_rows)]
+    else:
+        contig_groups_iter = ((name, list(rows))
+                              for name, rows in groupby(reader, itemgetter('contig')))
+    for contig_name2, contig_rows in contig_groups_iter:
         if contig_name2 != contig_name:
             continue
         contig_rows = list(contig_rows)
