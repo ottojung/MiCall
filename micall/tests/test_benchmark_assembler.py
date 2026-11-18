@@ -51,3 +51,43 @@ def test_missing_fasta_is_rejected(tmp_path, monkeypatch):
         RuntimeError, match="without the expected FASTA"
     ):
         assemble(first, second, None)
+
+def test_empty_unitigs_pipeline_failure_becomes_no_contigs(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def fake_run(argv, **kwargs):
+        work = Path(kwargs["cwd"])
+        (work / "assembly-1.fa").write_text("")
+        (work / "assembler.log").write_text(
+            "abyss-rresolver-short: ../Graph/DotIO.h:307: Assertion `num_vertices(g) > 0' failed.\n")
+        raise subprocess.CalledProcessError(2, argv)
+
+    monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
+    with WorkDir.using(tmp_path):
+        output = assemble(first, second, None)
+    assert output.is_file()
+    assert output.read_text() == ""
+
+
+def test_nonempty_unitigs_failure_is_not_masked(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def fake_run(argv, **kwargs):
+        work = Path(kwargs["cwd"])
+        (work / "assembly-1.fa").write_text(">contig\nACGT\n")
+        raise subprocess.CalledProcessError(2, argv)
+
+    monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
+    with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
+        assemble(first, second, None)
+
+
+def test_failure_without_empty_unitigs_is_not_masked(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def fake_run(argv, **kwargs):
+        raise subprocess.CalledProcessError(1, argv)
+
+    monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
+    with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
+        assemble(first, second, None)
