@@ -1285,14 +1285,26 @@ def calc_extension(
     kmers_cache: MutableMapping[str, AbstractSet[str]],
     cutoffs_cache: MutableMapping[Tuple[ContigId, ContigId], Optional[Tuple[int, int]]],
     align_cache: MutableMapping[Tuple[str, str], Tuple[str, str]],
+    contig_is_short: Optional[Sequence[bool]] = None,
+    contig_short_indices: Optional[Sequence[int]] = None,
+    contig_kmer_postings: Optional[Dict[str, list]] = None,
 ) -> bool:
     """
     Try to extend a single path with each contig in contigs.
     Return True if any extension was added to the pool.
     """
 
+    if contig_is_short is not None and contig_short_indices is not None and contig_kmer_postings is not None:
+        candidates = _candidate_indices_for_query(
+            path.whole, contig_is_short, contig_short_indices, contig_kmer_postings, kmers_cache
+        )
+    else:
+        candidates = None
+
     ret = False
-    for contig in contigs:
+    for i, contig in enumerate(contigs):
+        if candidates is not None and not contig_is_short[i] and i not in candidates:
+            continue
         new = extend_by_1(
             is_debug2, pool, path, contig,
             get_overlap_cache, kmers_cache, cutoffs_cache, align_cache
@@ -1312,6 +1324,9 @@ def calc_multiple_extensions(
     kmers_cache: MutableMapping[str, AbstractSet[str]],
     cutoffs_cache: MutableMapping[Tuple[ContigId, ContigId], Optional[Tuple[int, int]]],
     align_cache: MutableMapping[Tuple[str, str], Tuple[str, str]],
+    contig_is_short: Optional[Sequence[bool]] = None,
+    contig_short_indices: Optional[Sequence[int]] = None,
+    contig_kmer_postings: Optional[Dict[str, list]] = None,
 ) -> bool:
     """
     Attempt to extend multiple paths with a set of contigs.
@@ -1322,6 +1337,7 @@ def calc_multiple_extensions(
         ret = calc_extension(
             is_debug2, pool, contigs, path,
             get_overlap_cache, kmers_cache, cutoffs_cache, align_cache,
+            contig_is_short, contig_short_indices, contig_kmer_postings,
         ) or ret
     return ret
 
@@ -1341,7 +1357,15 @@ def calculate_all_paths(
     cutoffs_cache = ctx.cutoffs_cache
     align_cache = ctx.align_cache
 
-    max_alternatives = intrapolate_number_of_alternatives(len(contigs))
+    contigs_seq = tuple(contigs)
+    if contigs_seq:
+        contig_is_short, contig_short_indices, contig_kmer_postings = _build_kmer_candidate_index(
+            contigs_seq, kmers_cache
+        )
+    else:
+        contig_is_short, contig_short_indices, contig_kmer_postings = [], [], {}
+
+    max_alternatives = intrapolate_number_of_alternatives(len(contigs_seq))
     pool = Pool.empty(max_alternatives, ACCEPTABLE_STITCHING_SCORE())
     for path in sorted(paths):
         # stop if we reached capacity
@@ -1355,8 +1379,9 @@ def calculate_all_paths(
         log(events.CycleStart(cycle, len(pool.ring)))
 
         if not calc_multiple_extensions(
-            is_debug2, pool, pool.ring, contigs,
+            is_debug2, pool, pool.ring, contigs_seq,
             get_overlap_cache, kmers_cache, cutoffs_cache, align_cache,
+            contig_is_short, contig_short_indices, contig_kmer_postings,
         ):
             break
 
@@ -1364,6 +1389,57 @@ def calculate_all_paths(
         log(events.CycleEnd(cycle, len(pool.ring), pool))
 
     return pool.ring
+
+
+def _build_kmer_candidate_index(
+    contigs: Sequence[ContigWithAligner],
+    kmers_cache: MutableMapping[str, AbstractSet[str]],
+) -> Tuple[list, list, Dict[str, list]]:
+    """Build index for provably-safe pair prefiltering.
+
+    Returns (is_short, short_indices, postings) where postings maps k-mer ->
+    list of indices of contigs (>= KMER_SIZE) containing it. Short contigs
+    (< KMER_SIZE) are exempt from the shared-k-mer requirement in
+    get_overlap(), so they must remain eligible against every partner.
+    """
+    kmer_size = KMER_SIZE
+    is_short = [len(c.seq) < kmer_size for c in contigs]
+    short_indices = [i for i, s in enumerate(is_short) if s]
+    postings: Dict[str, list] = {}
+    for i, c in enumerate(contigs):
+        if is_short[i]:
+            continue
+        for kmer in get_kmers(kmers_cache, c.seq):
+            lst = postings.get(kmer)
+            if lst is None:
+                postings[kmer] = [i]
+            else:
+                lst.append(i)
+    return is_short, short_indices, postings
+
+
+def _candidate_indices_for_query(
+    query: ContigWithAligner,
+    is_short: Sequence[bool],
+    short_indices: Sequence[int],
+    postings: Dict[str, list],
+    kmers_cache: MutableMapping[str, AbstractSet[str]],
+) -> Optional[AbstractSet[int]]:
+    """Return indices of contigs that may pass get_overlap()'s k-mer gate.
+
+    None means no k-mer-based restriction is possible (query exempt), so all
+    contigs must be considered. Otherwise returns a set of candidate indices;
+    pairs not in this set and not exempt are provably rejected by
+    get_overlap()'s exact shared-k-mer requirement.
+    """
+    if len(query.seq) < KMER_SIZE:
+        return None
+    candidates = set(short_indices)
+    for kmer in get_kmers(kmers_cache, query.seq):
+        lst = postings.get(kmer)
+        if lst:
+            candidates.update(lst)
+    return candidates
 
 
 def try_combine_1(
@@ -1376,9 +1452,27 @@ def try_combine_1(
     cutoffs_cache = ctx.cutoffs_cache
     align_cache = ctx.align_cache
 
-    for first in contigs:
-        for second in contigs:
+    contigs_list = tuple(contigs)
+    if len(contigs_list) < 2:
+        return None
+    is_short, short_indices, postings = _build_kmer_candidate_index(
+        contigs_list, kmers_cache
+    )
+
+    for i, first in enumerate(contigs_list):
+        candidates = _candidate_indices_for_query(
+            first, is_short, short_indices, postings, kmers_cache
+        )
+        for j, second in enumerate(contigs_list):
+            if i == j:
+                continue
             if first.id >= second.id:
+                continue
+            # Necessary condition for get_overlap(): if both contigs are long
+            # enough for the k-mer filter, they must share a k-mer. Skipping
+            # here cannot change behavior because get_overlap() would return
+            # None for the same pair.
+            if candidates is not None and not is_short[j] and j not in candidates:
                 continue
 
             pool = Pool.empty(1, ACCEPTABLE_STITCHING_SCORE())
