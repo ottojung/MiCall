@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "unicycler")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,12 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "unicycler":
+        result = work / "unicycler/assembly.fasta"
+        # Illumina-only de novo short-read path: -1/-2 are the original
+        # paired FASTQ files. No reference, truth or target is ever passed.
+        # Short-read Unicycler is a SPAdes optimiser (spades.py is called by
+        # the pinned SPAdes build in the image); disclosed as non-independent.
+        return [["unicycler", "-1", first, "-2", second,
+                 "-o", str(work / "unicycler"), "-t", "2"]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")

@@ -59,3 +59,21 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: Unicycler (NONQUALIFYING)
+
+Branch `bench/assembler-unicycler` adds only the Unicycler short-read adapter,
+installed from pinned source `1429301eb24df9162f3c9386e8522f942594ae42` and built
+against SPAdes pinned at `896694ce5c7a9050a6ffa9fccc950a4cd9f04363`. License:
+GPL-3.0. The committed invocation uses only the original paired FASTQ (`-1`/`-2`)
+and no reference, truth or target. It accepts the native `assembly.fasta`,
+including a legitimate empty zero-contig file, while still failing on a nonzero
+exit or a missing FASTA.
+
+Unicycler's Illumina-only mode is a SPAdes optimiser, so this candidate is not
+algorithmically independent of SPAdes; that limitation is disclosed rather than
+hidden. The image contains no frozen seven tool. This profile is experimental,
+must be built only by the guarded launcher, and is excluded from qualification
+and release. No image digest or pilot result is asserted by this source commit.
+
