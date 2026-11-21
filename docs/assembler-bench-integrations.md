@@ -59,3 +59,11 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: idba-ud (NONQUALIFYING)
+
+Branch `bench/assembler-idba-ud` adds only the idba-ud adapter, installed from pinned source
+a1bafe6b012912cd9a76926ec75a98aee6213af6. License: GPL-2.0-or-later (pinned README). The image contains no frozen seven tool. This
+profile is experimental, must be built only by the guarded launcher, and is excluded from
+qualification and release. No image digest or pilot result is asserted by this source commit.

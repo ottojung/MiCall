@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "idba-ud")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,11 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "idba-ud":
+        # IDBA-UD consumes interleaved FASTA; fq2fa derives it from the two mates.
+        merged = work / "idba-reads.fa"
+        outdir = work / "idba-out"
+        result = outdir / "contig.fa"
+        return [["fq2fa", "--merge", "--filter", first, second, str(merged)],
+                ["idba_ud", "-r", str(merged), "-o", str(outdir)]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")
