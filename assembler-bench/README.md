@@ -1,0 +1,5 @@
+# Dedicated Ray MiCall assembler integration (NONQUALIFYING)
+
+Adapter-only branch `bench/assembler-ray` on the immutable common fork-MiCall baseline eeca0381808a6e9ba5ef791c80238a0e2940abb0. It installs only Ray at pinned source 621dfe8454dc96d49f405e413cb759d3f48790b2 (https://github.com/sebhtml/ray); no frozen seven tool or clinical source is changed.
+
+License: Ray Application GPL-3.0, Ray Platform LGPL-3.0 (`LICENSE.txt`, independently verified SHA256 fc24be5a854af6d2669d9db7f02fdbaf1bab72d16089362fa39f3169666e4956). Build needs an MPI toolchain (`mpicxx` at build, `mpiexec` at run); the Makefile target `Ray` is a single de-novo binary. Original paired Illumina FASTQs are passed directly with Ray's `-p R1 R2`; no reference, truth, or target argument is ever supplied. Native output is `<out>/Contigs.fasta`, including a legitimate zero-contig FASTA when no contigs are reconstructed. This image is experimental and excluded from the seven-way acceptance, Psi matrix and all release gates.

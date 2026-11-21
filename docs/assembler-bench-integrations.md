@@ -59,3 +59,19 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: Ray (NONQUALIFYING)
+
+Branch `bench/assembler-ray` adds only the Ray adapter, installed from pinned source
+621dfe8454dc96d49f405e413cb759d3f48790b2. License: Ray Application GPL-3.0 / Ray Platform
+LGPL-3.0 (`LICENSE.txt` independently verified SHA256
+fc24be5a854af6d2669d9db7f02fdbaf1bab72d16089362fa39f3169666e4956). The image contains no
+frozen seven tool. Ray is compiled from pinned source with an MPI toolchain and invoked as
+`mpiexec -n 2 Ray -k31 -p R1 R2 -o out`, consuming only the original paired Illumina FASTQs;
+no reference, truth or target argument is ever passed. Native output is `out/Contigs.fasta`,
+which may legitimately be a zero-contig FASTA. OpenMPI root execution is enabled only inside
+this dedicated image via `OMPI_ALLOW_RUN_AS_ROOT` environment labels. This profile is
+experimental, must be built only by the guarded launcher with an independently attested
+`TOOL_BINARY_SHA256`, and is excluded from qualification, Psi and release. No image digest or
+pilot result is asserted by this source commit.
