@@ -1,0 +1,5 @@
+# Dedicated penguin MiCall assembler integration (NONQUALIFYING)
+
+Adapter-only branch `bench/assembler-penguin` on the immutable common fork-MiCall baseline eeca0381808a6e9ba5ef791c80238a0e2940abb0. It installs only PenguiN (plass) at pinned source ac83d8fa2fd315738afe675609a3dea05837cfea (https://github.com/soedinglab/plass); no frozen seven tool or clinical source is changed.
+
+License: GPL-3.0 (verified in the pinned `LICENCE.md`). The committed path is `penguin nuclassemble <R1.fq> <R2.fq> <out.fa> <tmpdir>`: nucleotide-only de novo assembly from the original paired FASTQs, with the external SRC/MERC catalogs of `guided_nuclassemble` unused and no reference, truth or score argument. Source build requires g++ >= 4.9, CMake >= 3.0, zlib, bzip2 and the pinned submodules. A native empty FASTA is preserved as a legitimate zero-contig result and is never padded with fabricated contigs. This image is experimental and excluded from the seven-way acceptance, Psi matrix and all release gates.

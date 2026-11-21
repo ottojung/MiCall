@@ -59,3 +59,15 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: penguin (NONQUALIFYING)
+
+Branch `bench/assembler-penguin` adds only the PenguiN (plass) adapter, installed from pinned source
+ac83d8fa2fd315738afe675609a3dea05837cfea. License: GPL-3.0. The only committed invocation is
+`penguin nuclassemble <R1> <R2> <out.fa> <tmpdir>`, using nucleotide information alone from the
+original paired FASTQs; the external SRC/MERC catalogs of `guided_nuclassemble` are not fetched or
+passed, and no reference, truth or score argument exists. The image contains no frozen seven tool.
+A native empty FASTA is accepted as a legitimate zero-contig result and is never padded. This profile
+is experimental, must be built only by the guarded launcher, and is excluded from qualification and
+release. No image digest or pilot result is asserted by this source commit.

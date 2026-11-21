@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "penguin")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,10 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "penguin":
+        result = work / "penguin-contigs.fa"
+        # nuclassemble uses nucleotide information only. The paired FASTQs are
+        # supplied directly; no SRC/MERC catalog, reference or truth is passed.
+        return [["penguin", "nuclassemble", first, second,
+                 str(result), str(work / "penguin-tmp")]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")
