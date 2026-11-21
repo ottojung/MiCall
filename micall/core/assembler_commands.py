@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "savage")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,10 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "savage":
+        result = work / "contigs_stage_c.fasta"
+        # De novo only: paired FASTQ mates; no --ref and no --count_strains.
+        # A native empty FASTA is a legitimate zero-contig result.
+        return [["savage", "-p1", first, "-p2", second,
+                 "--split", "1", "-t", "2", "-o", str(work)]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")

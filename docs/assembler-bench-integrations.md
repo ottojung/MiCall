@@ -59,3 +59,15 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: savage (NONQUALIFYING, de novo only)
+
+Branch `bench/assembler-savage` adds only the SAVAGE adapter, installed from pinned source
+24e4d9fc35ef6a93e336949a9a8f98ed4ceef362. License: GPL-3.0. The only committed invocation is
+`savage -p1 <R1> -p2 <R2> --split 1 -t 2 -o <workdir>` — de novo assembly from the original paired
+FASTQs via rust-overlaps/FM-index (BLAST fallback). Neither `--ref` nor `--count_strains` is ever
+passed; both are reference-guided paths excluded by this adapter. The image contains no frozen
+seven tool. A native empty FASTA is accepted as a legitimate zero-contig result and is never
+padded. This profile is experimental, must be built only by the guarded launcher, and is excluded
+from qualification and release. No image digest or pilot result is asserted by this source commit.

@@ -1,0 +1,5 @@
+# Dedicated savage MiCall assembler integration (NONQUALIFYING)
+
+Adapter-only branch `bench/assembler-savage` on the immutable common fork-MiCall baseline eeca0381808a6e9ba5ef791c80238a0e2940abb0. It installs only SAVAGE de novo at pinned source 24e4d9fc35ef6a93e336949a9a8f98ed4ceef362 (https://github.com/HaploConduct/HaploConduct); no frozen seven tool or clinical source is changed.
+
+License: GPL-3.0 (verified in the pinned `LICENSE`, SHA256 8ceb4b9e..65b903 as attested by the PX feasibility operator). The committed path is `savage -p1 <R1.fq> -p2 <R2.fq> --split 1 -t 2 -o <workdir>`: de novo assembly from the original paired FASTQs using rust-overlaps/FM-index (BLAST fallback), with no `--ref` and no `--count_strains` — both reference-guided paths are excluded by this adapter. Source build requires Python 2.7, scipy, a C++11 compiler with OpenMP and boost (timer/system/program_options). A native empty FASTA is preserved as a legitimate zero-contig result and is never padded with fabricated contigs. This image is experimental and excluded from the seven-way acceptance, Psi matrix and all release gates.
