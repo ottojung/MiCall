@@ -15,7 +15,9 @@ RUN test "${#MICALL_FORK_SOURCE_COMMIT}" -eq 40 \
 ENV MICALL_DENOVO_ASSEMBLER="skesa"
 RUN test "${MICALL_DENOVO_ASSEMBLER}" = "skesa"
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      g++ make libboost-dev git ca-certificates \
+      g++ make git ca-certificates zlib1g-dev \
+      libboost-program-options-dev libboost-iostreams-dev libboost-regex-dev \
+      libboost-timer-dev libboost-chrono-dev libboost-system-dev \
     && rm -rf /var/lib/apt/lists/*
 # Makefile.nongs omits the SRA/NCBI-VDB client: this adapter reads only local FASTQs.
 RUN git clone --quiet ${TOOL_SOURCE_REPO} /src/skesa \
