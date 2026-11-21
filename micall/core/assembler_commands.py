@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "skesa")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,10 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "skesa":
+        result = work / "skesa-contigs.fa"
+        # --contigs_out keeps stdout free and accepts no reference/target argument.
+        return [["skesa", "--reads", f"{first},{second}",
+                 "--contigs_out", str(result), "--cores", "2",
+                 "--memory", "4"]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")

@@ -59,3 +59,11 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: skesa (NONQUALIFYING)
+
+Branch `bench/assembler-skesa` adds only the skesa adapter, installed from pinned source
+34c872e7fd61c758d0d3917acd76507a43edfc64. License: NCBI public domain (US Government Work); bundled third-party exceptions. The image contains no frozen seven tool. This
+profile is experimental, must be built only by the guarded launcher, and is excluded from
+qualification and release. No image digest or pilot result is asserted by this source commit.
