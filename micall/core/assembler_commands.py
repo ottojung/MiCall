@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "minia")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,11 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "minia":
+        # Minia ignores pairing; both mates are still consumed via one FASTQ.
+        prefix = str(work / "minia")
+        result = work / "minia.contigs.fa"
+        return [["minia", "-in", str(work / "both_mates.fastq"),
+                 "-kmer-size", "31", "-abundance-min", "3",
+                 "-out", prefix]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")

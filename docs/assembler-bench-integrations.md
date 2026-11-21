@@ -59,3 +59,11 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: minia (NONQUALIFYING)
+
+Branch `bench/assembler-minia` adds only the minia adapter, installed from pinned source
+7b7239c69ecc63534a20fc0d0c2de30f0f67e31c. License: AGPL-3.0. The image contains no frozen seven tool. This
+profile is experimental, must be built only by the guarded launcher, and is excluded from
+qualification and release. No image digest or pilot result is asserted by this source commit.

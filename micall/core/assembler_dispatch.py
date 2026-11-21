@@ -11,14 +11,13 @@ from micall.utils.work_dir import WorkDir
 
 def run_external_assembler(name: str, first: Path, second: Path) -> Path:
     """Run a fixed command, rejecting unsuccessful or missing FASTA output."""
-    if name not in ("ivanka", "haploflow", "megahit",
-                    "abyss", "spades", "velvet"):
+    if name not in ("minia",):
         raise ValueError(f"unsupported MiCall denovo assembler: {name}")
     work_dir = WorkDir.get()
     for old in work_dir.glob("assembly_*"):
         rmtree(old, ignore_errors=True)
     workspace = Path(mkdtemp(prefix="assembly_", dir=work_dir))
-    if name == "haploflow":
+    if name == "minia":
         interleave_pairs(first, second, workspace / "both_mates.fastq")
     steps, output = command_steps(name, first, second, workspace)
     with (workspace / "assembler.log").open("wb") as log:
