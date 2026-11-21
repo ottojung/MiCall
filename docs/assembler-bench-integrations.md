@@ -59,3 +59,11 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: tadpole (NONQUALIFYING)
+
+Branch `bench/assembler-tadpole` adds only the tadpole adapter, installed from pinned source
+fb1a2727b7b4994ecae0ddc362d4ed8148307b20. License: LBNL/Regents BSD-like 3-clause; README states 'free for unlimited use'. The image contains no frozen seven tool. This
+profile is experimental, must be built only by the guarded launcher, and is excluded from
+qualification and release. No image digest or pilot result is asserted by this source commit.

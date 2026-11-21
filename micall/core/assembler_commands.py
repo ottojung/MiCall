@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "tadpole")
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +38,9 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "tadpole":
+        result = work / "tadpole-contigs.fa"
+        # in=R1,R2 is BBTools' twin-file syntax; mode=assemble never takes ref=.
+        return [["tadpole.sh", f"in={first},{second}", f"out={result}",
+                 "mode=assemble", "k=62"]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")
