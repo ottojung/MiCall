@@ -24,7 +24,7 @@ from micall.utils.csv_to_fasta import csv_to_fasta, NoContigsInCSV
 from micall.utils.referencefull_contig_stitcher import referencefull_contig_stitcher
 from micall.utils.stitched_read_counts import project_stitched_counts
 import micall.utils.referenceless_contig_stitcher as referenceless
-from micall.utils.cat import cat as concatenate_files
+from micall.utils.unique_contigs import concatenate_unique_contigs
 from micall.utils.work_dir import WorkDir
 from contextlib import contextmanager, nullcontext
 
@@ -467,9 +467,13 @@ class Sample:
             except NoContigsInCSV:
                 output.touch()
 
-        concatenate_files(inputs=[self.unstitched_contigs_fasta,
-                                  self.merged_contigs_fasta],
-                          output=self.combined_contigs_fasta)
+        # Remove native/G2P copies of the same molecule BEFORE the first
+        # remap. Otherwise repeated FASTA rows make stitched read support
+        # unknowable, despite each sequence being genuinely read-supported.
+        concatenate_unique_contigs(
+            inputs=[self.unstitched_contigs_fasta, self.merged_contigs_fasta],
+            output=self.combined_contigs_fasta,
+        )
 
         # Create unstitched_contigs_csv from unstitched (combined) fasta
         with open(self.unstitched_contigs_csv, 'w') as unstitched_contigs_csv, \
