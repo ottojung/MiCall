@@ -120,3 +120,18 @@ def test_invalid_choice_never_executes_any_program(tmp_path):
     with patch.dict(os.environ, {"MICALL_DENOVO_ASSEMBLER": "unknown"}):
         with pytest.raises(ValueError, match="unsupported"):
             run_subprocess(tmp_path/"r1", tmp_path/"r2", None)
+
+
+def test_dedicated_container_source_guards_are_consistent():
+    """Prevent malformed image labels and impossible clinical-tree guard."""
+    root = Path(__file__).resolve().parents[2]
+    docker = (root / "Dockerfile.assembler-bench").read_text()
+    builder = (root / "scripts/build_dedicated_assembler.sh").read_text()
+    for var in ("MICALL_DENOVO_ASSEMBLER", "MICALL_FORK_SOURCE_COMMIT",
+                "FORK_BASE_IMAGE", "MICALL_FORK_BASE_COMMIT",
+                "TOOL_SOURCE_REPO", "TOOL_SOURCE_COMMIT",
+                "TOOL_BINARY_SHA256"):
+        assert chr(36) + "{" + var + "}}" not in docker
+    assert 'git diff --name-only "$baseline" HEAD' in builder
+    assert '$baseline:micall' not in builder
+    assert "downstream-changed: $path" in builder

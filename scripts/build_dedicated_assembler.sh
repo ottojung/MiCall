@@ -19,7 +19,14 @@ baseline=$(cat assembler-bench/baseline-commit)
 test "${#sha}" -eq 40
 test "${#baseline}" -eq 40
 git merge-base --is-ancestor "$baseline" HEAD
-test "$(git rev-parse "$baseline:micall")" = "$(git rev-parse HEAD:micall)" || { echo downstream-changed >&2; exit 1; }
+# Clinical source is frozen, but adapter-specific modules/tests MUST differ
+# from baseline. Fail closed on every non-allowlisted file change instead.
+for path in $(git diff --name-only "$baseline" HEAD); do
+  case "$path" in
+    Dockerfile.assembler-bench|assembler-bench/README.md|assembler-bench/baseline-commit|assembler-bench/selected|docs/assembler-bench-integrations.md|micall/core/assembler_commands.py|micall/core/assembler_dispatch.py|micall/tests/test_assembler_integrations.py|scripts/build_dedicated_assembler.sh) ;;
+    *) echo "downstream-changed: $path" >&2; exit 1 ;;
+  esac
+done
 remote_sha=$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')
 test "$remote_sha" = "$sha" || { echo branch-not-published >&2; exit 1; }
 base=${FORK_BASE_IMAGE:?supply exact fork-built common MiCall image ID}
