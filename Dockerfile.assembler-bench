@@ -8,11 +8,19 @@ ARG MICALL_FORK_BASE_COMMIT
 ARG TOOL_SOURCE_REPO
 ARG TOOL_SOURCE_COMMIT
 ARG TOOL_BINARY_SHA256
+ARG MICALL_ADAPTER_COMMANDS_SHA256
+ARG MICALL_ADAPTER_DISPATCH_SHA256
 RUN test "${#MICALL_FORK_SOURCE_COMMIT}" -eq 40 \
     && test "${#MICALL_FORK_BASE_COMMIT}" -eq 40 \
     && test "${#TOOL_SOURCE_COMMIT}" -eq 40 \
     && test "${#TOOL_BINARY_SHA256}" -eq 64
 ENV MICALL_DENOVO_ASSEMBLER="minia"
+# Source-bound per-assembler adapter must actually be installed in the image.
+# The original fork common clinical image is not modified.
+RUN test -d /opt/venv/lib/python3.12/site-packages/micall/core
+COPY micall/core/assembler_commands.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py
+COPY micall/core/assembler_dispatch.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py
+RUN test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_COMMANDS_SHA256}"     && test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_DISPATCH_SHA256}"     && /opt/venv/bin/python -c "from micall.core.assembler_commands import ASSEMBLERS; assert 'minia' in ASSEMBLERS"
 RUN test "${MICALL_DENOVO_ASSEMBLER}" = "minia"
 RUN apt-get update && apt-get install -y --no-install-recommends \
       g++ cmake make zlib1g-dev git ca-certificates \
@@ -33,3 +41,5 @@ LABEL org.ottojung.micall.assembler="minia"
 LABEL org.ottojung.exploratory.tool-source-repo="${TOOL_SOURCE_REPO}"
 LABEL org.ottojung.exploratory.tool-source-commit="${TOOL_SOURCE_COMMIT}"
 LABEL org.ottojung.exploratory.tool-binary-sha256="${TOOL_BINARY_SHA256}"
+LABEL org.ottojung.micall.adapter-commands-sha256="${MICALL_ADAPTER_COMMANDS_SHA256}"
+LABEL org.ottojung.micall.adapter-dispatch-sha256="${MICALL_ADAPTER_DISPATCH_SHA256}"
