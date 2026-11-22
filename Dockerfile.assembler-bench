@@ -32,6 +32,8 @@ RUN git clone --recursive --quiet ${TOOL_SOURCE_REPO} /src/minia \
     && sh INSTALL \
     && install -m 0755 build/bin/minia /usr/local/bin/minia \
     && rm -rf /src/minia
+# A provenance label alone is not proof; fail the image build on a binary hash mismatch.
+RUN test -f /usr/local/bin/minia && test "$(sha256sum /usr/local/bin/minia | cut -d' ' -f1)" = "${TOOL_BINARY_SHA256}"
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
 LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
