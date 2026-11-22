@@ -265,3 +265,10 @@ def test_dedicated_image_packages_no_frozen_seven_tool():
     for frozen in ("megahit", "abyss-pe", "spades.py", "velvetg",
                    "haploflow", "/usr/local/bin/ivanka"):
         assert frozen not in docker
+
+
+def test_native_artifact_sha256_is_verified_inside_image():
+    docker = (Path(__file__).resolve().parents[2] /
+              "Dockerfile.assembler-bench").read_text()
+    assert "sha256sum /usr/local/bin/fml-asm | cut" in docker
+    assert "TOOL_BINARY_SHA256" in docker
