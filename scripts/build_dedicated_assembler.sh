@@ -39,6 +39,8 @@ test "$base_sha" = "$baseline" || { echo wrong-common-base >&2; exit 1; }
 tool_sha=${TOOL_SOURCE_COMMIT:?supply pinned tool source commit}
 test "$tool_sha" = "1429301eb24df9162f3c9386e8522f942594ae42" || { echo wrong-tool-source >&2; exit 1; }
 spades_sha=${SPADES_SOURCE_COMMIT:?supply pinned SPAdes source commit}
+spades_bin_sha=${SPADES_BINARY_SHA256:?independently attest SPAdes core binary SHA256}
+test "${#spades_bin_sha}" -eq 64
 test "$spades_sha" = "896694ce5c7a9050a6ffa9fccc950a4cd9f04363" || { echo wrong-spades-source >&2; exit 1; }
 commands_sha=$(sha256sum micall/core/assembler_commands.py | cut -d' ' -f1)
 dispatch_sha=$(sha256sum micall/core/assembler_dispatch.py | cut -d' ' -f1)
@@ -54,7 +56,8 @@ set -- --pull=never --network=host \
   --build-arg "MICALL_ADAPTER_DISPATCH_SHA256=$dispatch_sha" \
   --build-arg "TOOL_BINARY_SHA256=$tool_bin_sha" \
   --build-arg "SPADES_SOURCE_REPO=https://github.com/ablab/spades" \
-  --build-arg "SPADES_SOURCE_COMMIT=$spades_sha"
+  --build-arg "SPADES_SOURCE_COMMIT=$spades_sha" \
+  --build-arg "SPADES_BINARY_SHA256=$spades_bin_sha"
 podman build "$@" -f Dockerfile.assembler-bench -t "$tag" .
 image_id=$(podman image inspect --format '{{.Id}}' "$tag")
 for pair in \
@@ -67,6 +70,7 @@ for pair in \
   "org.ottojung.exploratory.tool-source-commit|$tool_sha" \
   "org.ottojung.micall.adapter-commands-sha256|$commands_sha" \
   "org.ottojung.micall.adapter-dispatch-sha256|$dispatch_sha" \
+  "org.ottojung.exploratory.spades-binary-sha256|$spades_bin_sha" \
   "org.ottojung.exploratory.tool-binary-sha256|$tool_bin_sha" \
   "org.ottojung.exploratory.spades-source-commit|$spades_sha" \
   "org.ottojung.exploratory.tool-license|GPL-3.0" \

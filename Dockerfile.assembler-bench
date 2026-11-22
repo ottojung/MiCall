@@ -12,6 +12,7 @@ ARG MICALL_ADAPTER_COMMANDS_SHA256
 ARG MICALL_ADAPTER_DISPATCH_SHA256
 ARG SPADES_SOURCE_REPO
 ARG SPADES_SOURCE_COMMIT
+ARG SPADES_BINARY_SHA256
 RUN test "${#MICALL_FORK_SOURCE_COMMIT}" -eq 40 \
     && test "${#MICALL_FORK_BASE_COMMIT}" -eq 40 \
     && test "${#TOOL_SOURCE_COMMIT}" -eq 40 \
@@ -44,7 +45,7 @@ RUN git clone --quiet ${SPADES_SOURCE_REPO} /opt/spades-src \
     && PREFIX=/opt/spades ./spades_compile.sh -j 2 \
     && test -x /opt/spades/bin/spades.py \
     && test -x /opt/spades/bin/spades-core \
-    && echo "${TOOL_BINARY_SHA256}  /opt/spades/bin/spades-core" | sha256sum -c -
+    && echo "${SPADES_BINARY_SHA256}  /opt/spades/bin/spades-core" | sha256sum -c -
 ENV PATH=/opt/spades/bin:${PATH}
 
 # Unicycler itself, from the exact pinned upstream commit.
@@ -54,7 +55,8 @@ RUN git clone --quiet ${TOOL_SOURCE_REPO} /opt/Unicycler \
     && test "$(git rev-parse HEAD)" = "${TOOL_SOURCE_COMMIT}" \
     && python3 setup.py install \
     && test -f /opt/Unicycler/unicycler/cpp_functions.so \
-    && unicycler --help >/dev/null
+    && unicycler --help >/dev/null \
+    && echo "${TOOL_BINARY_SHA256}  /opt/Unicycler/unicycler/cpp_functions.so" | sha256sum -c -
 
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
@@ -66,6 +68,7 @@ LABEL org.ottojung.exploratory.tool-source-repo="${TOOL_SOURCE_REPO}"
 LABEL org.ottojung.exploratory.tool-source-commit="${TOOL_SOURCE_COMMIT}"
 LABEL org.ottojung.exploratory.tool-binary-sha256="${TOOL_BINARY_SHA256}"
 LABEL org.ottojung.exploratory.spades-source-repo="${SPADES_SOURCE_REPO}"
+LABEL org.ottojung.exploratory.spades-binary-sha256="${SPADES_BINARY_SHA256}"
 LABEL org.ottojung.exploratory.spades-source-commit="${SPADES_SOURCE_COMMIT}"
 LABEL org.ottojung.exploratory.tool-license="GPL-3.0"
 LABEL org.ottojung.exploratory.nonqualifying="true"

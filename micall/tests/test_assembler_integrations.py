@@ -152,3 +152,13 @@ def test_image_contains_exact_fork_adapter_modules_and_labels():
     assert "adapter-commands-sha256|$commands_sha" in builder
     assert "adapter-dispatch-sha256|$dispatch_sha" in builder
     assert "from micall.core.assembler_commands import ASSEMBLERS" in docker
+
+def test_unicycler_and_spades_native_artifacts_verified_separately():
+    root = Path(__file__).resolve().parents[2]
+    docker = (root / "Dockerfile.assembler-bench").read_text()
+    builder = (root / "scripts/build_dedicated_assembler.sh").read_text()
+    assert "SPADES_BINARY_SHA256" in docker and "SPADES_BINARY_SHA256" in builder
+    assert 'sha256sum /opt/spades/bin/spades-core' not in docker or "SPADES_BINARY_SHA256" in docker
+    assert 'TOOL_BINARY_SHA256}  /opt/spades/bin/spades-core' not in docker
+    assert 'TOOL_BINARY_SHA256}  /opt/Unicycler/unicycler/cpp_functions.so' in docker
+    assert "org.ottojung.exploratory.spades-binary-sha256|$spades_bin_sha" in builder
