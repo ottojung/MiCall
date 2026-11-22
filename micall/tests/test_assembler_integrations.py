@@ -146,3 +146,10 @@ def test_image_contains_exact_fork_adapter_modules_and_labels():
     assert "adapter-commands-sha256|$commands_sha" in builder
     assert "adapter-dispatch-sha256|$dispatch_sha" in builder
     assert "from micall.core.assembler_commands import ASSEMBLERS" in docker
+
+
+def test_native_artifact_sha256_is_verified_inside_image():
+    docker = (Path(__file__).resolve().parents[2] /
+              "Dockerfile.assembler-bench").read_text()
+    assert "sha256sum /usr/local/bin/idba_ud | cut" in docker
+    assert "TOOL_BINARY_SHA256" in docker
