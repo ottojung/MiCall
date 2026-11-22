@@ -40,6 +40,8 @@ tool_sha=${TOOL_SOURCE_COMMIT:?supply pinned tool source commit}
 test "$tool_sha" = "1429301eb24df9162f3c9386e8522f942594ae42" || { echo wrong-tool-source >&2; exit 1; }
 spades_sha=${SPADES_SOURCE_COMMIT:?supply pinned SPAdes source commit}
 test "$spades_sha" = "896694ce5c7a9050a6ffa9fccc950a4cd9f04363" || { echo wrong-spades-source >&2; exit 1; }
+commands_sha=$(sha256sum micall/core/assembler_commands.py | cut -d' ' -f1)
+dispatch_sha=$(sha256sum micall/core/assembler_dispatch.py | cut -d' ' -f1)
 tool_bin_sha=${TOOL_BINARY_SHA256:?supply independently attested tool binary SHA256}
 test "${#tool_bin_sha}" -eq 64
 set -- --pull=never --network=host \
@@ -48,6 +50,8 @@ set -- --pull=never --network=host \
   --build-arg "MICALL_FORK_BASE_COMMIT=$baseline" \
   --build-arg "TOOL_SOURCE_REPO=https://github.com/rrwick/Unicycler" \
   --build-arg "TOOL_SOURCE_COMMIT=$tool_sha" \
+  --build-arg "MICALL_ADAPTER_COMMANDS_SHA256=$commands_sha" \
+  --build-arg "MICALL_ADAPTER_DISPATCH_SHA256=$dispatch_sha" \
   --build-arg "TOOL_BINARY_SHA256=$tool_bin_sha" \
   --build-arg "SPADES_SOURCE_REPO=https://github.com/ablab/spades" \
   --build-arg "SPADES_SOURCE_COMMIT=$spades_sha"
@@ -61,13 +65,15 @@ for pair in \
   "org.ottojung.micall.source-branch|$branch" \
   "org.ottojung.micall.assembler|$name" \
   "org.ottojung.exploratory.tool-source-commit|$tool_sha" \
+  "org.ottojung.micall.adapter-commands-sha256|$commands_sha" \
+  "org.ottojung.micall.adapter-dispatch-sha256|$dispatch_sha" \
   "org.ottojung.exploratory.tool-binary-sha256|$tool_bin_sha" \
   "org.ottojung.exploratory.spades-source-commit|$spades_sha" \
   "org.ottojung.exploratory.tool-license|GPL-3.0" \
   "org.ottojung.exploratory.nonqualifying|true";do
  key=${pair%%|*}
  expected=${pair#*|}
- actual=$(podman image inspect --format '{{index .Config.Labels "$key"}}' "$tag")
+ actual=$(podman image inspect --format "{{index .Config.Labels \"$key\"}}" "$tag")
  test "$actual" = "$expected" || { echo "image-label-mismatch $key" >&2; exit 1; }
 done
 echo "DEDICATED_IMAGE_VERIFIED assembler=$name branch=$branch commit=$sha image=$image_id baseline=$baseline"
