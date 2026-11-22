@@ -129,3 +129,17 @@ def test_dedicated_container_source_guards_are_consistent():
     assert 'git diff --name-only "$baseline" HEAD' in builder
     assert '$baseline:micall' not in builder
     assert "downstream-changed: $path" in builder
+
+
+def test_image_contains_exact_fork_adapter_modules_and_labels():
+    root = Path(__file__).resolve().parents[2]
+    docker = (root / "Dockerfile.assembler-bench").read_text()
+    builder = (root / "scripts/build_dedicated_assembler.sh").read_text()
+    for module in ("assembler_commands.py", "assembler_dispatch.py"):
+        assert "COPY micall/core/" + module in docker
+    for variable in ("MICALL_ADAPTER_COMMANDS_SHA256",
+                     "MICALL_ADAPTER_DISPATCH_SHA256"):
+        assert variable in docker and variable in builder
+    assert "adapter-commands-sha256|$commands_sha" in builder
+    assert "adapter-dispatch-sha256|$dispatch_sha" in builder
+    assert "from micall.core.assembler_commands import ASSEMBLERS" in docker
