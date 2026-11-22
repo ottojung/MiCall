@@ -59,3 +59,25 @@ errors. If the requested target or MiCall downstream fails, the
 candidate still fails. All seven candidate images must be rebuilt
 from this one new canonical MiCall source baseline before a new
 qualification run can use this profile.
+
+
+## Exploratory dedicated profile: Fermi-lite (NONQUALIFYING)
+
+Branch `bench/assembler-fermi-lite` adds only the Fermi-lite adapter, built
+from pinned source `85f159e5a2e15a4c4fb41cdfce91ba0c9b68d2e1`
+(https://github.com/lh3/fermi-lite), whose `LICENSE.txt` is MIT and is
+verified by SHA-256 in the image. The committed invocation calls
+`/usr/local/bin/fml-asm` with a single interleaved FASTQ and no reference,
+seed, truth or target argument. Both source-attested mates are interleaved
+into that one input in original order. `misc.c:fml_utg_print` writes actual
+assembled unitigs as FASTQ on stdout; the committed dispatcher captures that
+stdout and converts each valid record to an exact-sequence FASTA record
+without inventing or altering contigs. A valid zero-unitig assembly is an
+empty FASTA. Malformed or truncated FASTQ, a nonzero assembler exit and a
+missing output all fail closed; they are never reported as empty success.
+
+The image contains no frozen seven tool. This profile is experimental, must
+be built only by the guarded launcher, and is excluded from qualification,
+the Psi matrix and release. The tool binary digest is independently
+attested at build time and recorded as an OCI label; no image digest or
+pilot result is asserted by this source commit.

@@ -2,7 +2,19 @@
 from pathlib import Path
 
 ASSEMBLERS = ("iva", "ivanka", "haploflow", "megahit",
-              "abyss", "spades", "velvet")
+              "abyss", "spades", "velvet", "fermi-lite")
+
+# Fermi-lite's fml-asm takes exactly one FASTQ. Both source-attested mates are
+# interleaved into this file first, preserving original mate order.
+BOTH_MATES = "both_mates.fastq"
+# fml_utg_print (misc.c) writes assembled unitigs as FASTQ on stdout. The
+# dispatcher captures stdout here and converts those exact sequences to FASTA.
+FERMI_LITE_UNITIGS = "fermi-lite.unitigs.fastq"
+
+
+def fermi_lite_unitig_fastq(work: Path) -> Path:
+    """Path where the dispatcher captures fml-asm's stdout unitig FASTQ."""
+    return work / FERMI_LITE_UNITIGS
 
 
 def command_steps(name: str, first: Path, second: Path, work: Path):
@@ -38,4 +50,11 @@ def command_steps(name: str, first: Path, second: Path, work: Path):
                  "-shortPaired", "-separate", first, second],
                 ["velvetg", str(work / "velvet"), "-ins_length", "270",
                  "-exp_cov", "auto"]], result
+    if name == "fermi-lite":
+        # fml-asm accepts a single FASTQ and has no reference/seed/target
+        # argument. It writes actual assembled unitigs as FASTQ to stdout;
+        # the dispatcher captures and converts those exact sequences.
+        result = work / "fermi-lite-contigs.fasta"
+        return [["/usr/local/bin/fml-asm",
+                 str(work / BOTH_MATES)]], result
     raise ValueError(f"unsupported MiCall denovo assembler: {name}")

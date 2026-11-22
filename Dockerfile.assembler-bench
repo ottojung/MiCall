@@ -1,33 +1,59 @@
-# Build only atop the exact fork-built MiCall source revision.
+# Dedicated MiCall fork image for exactly one NONQUALIFYING exploratory assembler.
+# Nothing from the frozen seven-tool clinical image is copied or rebuilt here.
 ARG FORK_BASE_IMAGE
-ARG IVANKA_IMAGE
-FROM ${IVANKA_IMAGE} AS ivanka_tool
-
-FROM quay.io/biocontainers/haploflow@sha256:eaf03733093a99a290d6b30af3a4b95543d9accfe63ff37851a0e5de6c02396d AS haploflow_tool
-
 FROM ${FORK_BASE_IMAGE}
-ARG MICALL_FORK_SOURCE_COMMIT
-ARG MICALL_DENOVO_ASSEMBLER
-ARG IVANKA_SOURCE_COMMIT
 ARG FORK_BASE_IMAGE
+ARG MICALL_FORK_SOURCE_COMMIT
+ARG MICALL_FORK_BASE_COMMIT
+ARG TOOL_SOURCE_REPO
+ARG TOOL_SOURCE_COMMIT
+ARG TOOL_BINARY_SHA256
+ARG TOOL_LICENSE_SHA256
+ARG MICALL_ADAPTER_COMMANDS_SHA256
+ARG MICALL_ADAPTER_DISPATCH_SHA256
+RUN test "${#MICALL_FORK_SOURCE_COMMIT}" -eq 40 \
+    && test "${#MICALL_FORK_BASE_COMMIT}" -eq 40 \
+    && test "${#TOOL_SOURCE_COMMIT}" -eq 40 \
+    && test "${#TOOL_BINARY_SHA256}" -eq 64 \
+    && test "${#TOOL_LICENSE_SHA256}" -eq 64
+ENV MICALL_DENOVO_ASSEMBLER="fermi-lite"
+# Source-bound per-assembler adapter must actually be installed in the image.
+# The original fork common clinical image is not modified.
+RUN test -d /opt/venv/lib/python3.12/site-packages/micall/core
+COPY micall/core/assembler_commands.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py
+COPY micall/core/assembler_dispatch.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py
+RUN test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_COMMANDS_SHA256}" \
+    && test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_DISPATCH_SHA256}" \
+    && /opt/venv/bin/python -c "from micall.core.assembler_commands import ASSEMBLERS; assert 'fermi-lite' in ASSEMBLERS"
+RUN test "${MICALL_DENOVO_ASSEMBLER}" = "fermi-lite"
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      megahit=1.2.9-4 abyss=2.3.5+dfsg-2 \
-      spades=3.15.5+dfsg-2 velvet=1.2.10+dfsg1-8 \
+      gcc make zlib1g-dev git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=haploflow_tool /usr/local/bin/haploflow /usr/local/bin/haploflow
-COPY --from=haploflow_tool /usr/local/lib/libboost_filesystem.so.1.85.0 /usr/local/lib/
-COPY --from=haploflow_tool /usr/local/lib/libboost_program_options.so.1.85.0 /usr/local/lib/
-COPY --from=haploflow_tool /usr/local/lib/libstdc++.so.6.0.33 /usr/local/lib/
-COPY --from=haploflow_tool /usr/local/lib/libgcc_s.so.1 /usr/local/lib/
-COPY --from=ivanka_tool /usr/local/bin/ivanka /usr/local/bin/ivanka
-RUN ln -sf libstdc++.so.6.0.33 /usr/local/lib/libstdc++.so.6 && \
-    ldconfig
-RUN case "${MICALL_DENOVO_ASSEMBLER}" in \
-      iva|ivanka|haploflow|megahit|abyss|spades|velvet) ;; \
-      *) echo "unknown MiCall assembler" >&2; exit 1;; esac
-ENV MICALL_DENOVO_ASSEMBLER="${MICALL_DENOVO_ASSEMBLER}"
+# Fermi-lite is built only from the pinned upstream source. The binary digest
+# is independently attested by the guarded launcher and recorded as a label;
+# it is never inferred or fabricated in this source tree. The MIT LICENSE.txt
+# of that exact source revision is verified and installed in the image.
+RUN git clone --quiet ${TOOL_SOURCE_REPO} /src/fermi-lite \
+    && cd /src/fermi-lite \
+    && git checkout --quiet ${TOOL_SOURCE_COMMIT} \
+    && test "$(git rev-parse HEAD)" = "${TOOL_SOURCE_COMMIT}" \
+    && test "$(sha256sum LICENSE.txt | cut -d' ' -f1)" = "${TOOL_LICENSE_SHA256}" \
+    && make \
+    && test -x fml-asm \
+    && install -m 0755 fml-asm /usr/local/bin/fml-asm \
+    && install -D -m 0644 LICENSE.txt /usr/share/licenses/fermi-lite/LICENSE.txt \
+    && rm -rf /src/fermi-lite
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
 LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
-LABEL org.ottojung.micall.assembler="${MICALL_DENOVO_ASSEMBLER}"
-LABEL org.ottojung.ivanka.source-commit="${IVANKA_SOURCE_COMMIT}"
+LABEL org.ottojung.micall.common-baseline-commit="${MICALL_FORK_BASE_COMMIT}"
+LABEL org.ottojung.micall.source-branch="bench/assembler-fermi-lite"
+LABEL org.ottojung.micall.assembler="fermi-lite"
+LABEL org.ottojung.exploratory.tool-source-repo="${TOOL_SOURCE_REPO}"
+LABEL org.ottojung.exploratory.tool-source-commit="${TOOL_SOURCE_COMMIT}"
+LABEL org.ottojung.exploratory.tool-binary-sha256="${TOOL_BINARY_SHA256}"
+LABEL org.ottojung.exploratory.tool-license="MIT"
+LABEL org.ottojung.exploratory.tool-license-sha256="${TOOL_LICENSE_SHA256}"
+LABEL org.ottojung.exploratory.nonqualifying="true"
+LABEL org.ottojung.micall.adapter-commands-sha256="${MICALL_ADAPTER_COMMANDS_SHA256}"
+LABEL org.ottojung.micall.adapter-dispatch-sha256="${MICALL_ADAPTER_DISPATCH_SHA256}"
