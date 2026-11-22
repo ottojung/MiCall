@@ -33,6 +33,8 @@ RUN git clone --quiet ${TOOL_SOURCE_REPO} /opt/BBTools \
     && ln -s /opt/BBTools/tadpole.sh /usr/local/bin/tadpole.sh
 ENV PATH=/opt/BBTools:${PATH}
 
+# A provenance label alone is not proof; fail the image build on a binary hash mismatch.
+RUN test -f /opt/BBTools/tadpole.sh && test "$(sha256sum /opt/BBTools/tadpole.sh | cut -d' ' -f1)" = "${TOOL_BINARY_SHA256}"
 LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
 LABEL org.opencontainers.image.revision="${MICALL_FORK_SOURCE_COMMIT}"
 LABEL org.ottojung.micall.common-base="${FORK_BASE_IMAGE}"
@@ -44,3 +46,4 @@ LABEL org.ottojung.exploratory.tool-source-commit="${TOOL_SOURCE_COMMIT}"
 LABEL org.ottojung.exploratory.tool-binary-sha256="${TOOL_BINARY_SHA256}"
 LABEL org.ottojung.micall.adapter-commands-sha256="${MICALL_ADAPTER_COMMANDS_SHA256}"
 LABEL org.ottojung.micall.adapter-dispatch-sha256="${MICALL_ADAPTER_DISPATCH_SHA256}"
+LABEL org.ottojung.exploratory.native-binary-scope="tadpole.sh launcher; Java classes pinned by git source"
