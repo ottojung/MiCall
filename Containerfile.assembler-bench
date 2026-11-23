@@ -1,0 +1,43 @@
+# Dedicated Ray benchmark: exact frozen clinical master plus one fixed adapter.
+# The native tool donor is never used as a MiCall source or qualified image.
+ARG ASSEMBLER_TOOL_IMAGE
+FROM ${ASSEMBLER_TOOL_IMAGE}
+# OpenMPI refuses mpiexec as root without these two flags; they do not select
+# an assembler or influence MiCall's clinical stages.
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+ARG MICALL_BASE_COMMIT
+ARG MICALL_SOURCE_COMMIT
+ARG TOOL_IMAGE_ID
+ARG TOOL_BINARY_SHA256
+ARG MICALL_ADAPTER_SHA256
+ARG MICALL_DENOVO_SHA256
+RUN test "$MICALL_BASE_COMMIT" = \
+      "8458f9e5d34c39a6694b1fb6a40e055d7ce89553" \
+    && test "${#MICALL_SOURCE_COMMIT}" -eq 40 \
+    && test "${#TOOL_BINARY_SHA256}" -eq 64 \
+    && test "${#MICALL_ADAPTER_SHA256}" -eq 64 \
+    && test "${#MICALL_DENOVO_SHA256}" -eq 64 \
+    && test -n "$TOOL_IMAGE_ID"
+# Remove every old MiCall installation, not only known patched files.
+RUN rm -rf /opt/micall /opt/venv/lib/python3.12/site-packages/micall
+COPY pyproject.toml uv.lock README.md /opt/micall/
+COPY micall /opt/micall/micall
+# Independent hash guards for the only two source files changed by this branch.
+RUN test "$(sha256sum /opt/micall/micall/core/benchmark_assembler.py | cut -d' ' -f1)" = "$MICALL_ADAPTER_SHA256" \
+    && test "$(sha256sum /opt/micall/micall/core/denovo.py | cut -d' ' -f1)" = "$MICALL_DENOVO_SHA256" \
+    && test -x /usr/local/bin/Ray \
+    && test "$(sha256sum /usr/local/bin/Ray | cut -d' ' -f1)" = "$TOOL_BINARY_SHA256"
+RUN /opt/uv-home/.local/bin/uv sync --frozen --managed-python --project /opt/micall \
+      --extra basespace --extra watcher --extra utils --no-editable --reinstall-package micall
+RUN /opt/venv/bin/micall make_blast_db
+RUN /opt/venv/bin/python -c "import micall.core.denovo as d; print(d.__file__)"
+LABEL org.opencontainers.image.source="https://github.com/ottojung/MiCall"
+LABEL org.opencontainers.image.revision="$MICALL_SOURCE_COMMIT"
+LABEL org.ottojung.micall.frozen-upstream-master="$MICALL_BASE_COMMIT"
+LABEL org.ottojung.micall.native-tool-image="$TOOL_IMAGE_ID"
+LABEL org.ottojung.micall.assembler="ray"
+LABEL org.ottojung.micall.integration-mode="single-assembler-frozen-clinical"
+LABEL org.ottojung.micall.adapter-sha256="$MICALL_ADAPTER_SHA256"
+LABEL org.ottojung.micall.denovo-sha256="$MICALL_DENOVO_SHA256"
+LABEL org.ottojung.exploratory.tool-binary-sha256="$TOOL_BINARY_SHA256"
