@@ -3,23 +3,14 @@ import argparse
 import logging
 from pathlib import Path
 from typing import Optional
-from csv import DictReader
 from datetime import datetime
 import shutil
-from shutil import rmtree
-from subprocess import PIPE, CalledProcessError, STDOUT
-import subprocess
-from tempfile import mkdtemp
 
-from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
 from micall.utils.cache import cached
 from micall.utils.work_dir import WorkDir
 
 
-IVA = "iva"
 logger = logging.getLogger(__name__)
 
 
@@ -28,61 +19,15 @@ def count_fasta_sequences(file_path: Path) -> int:
         return sum(1 for line in file if line.startswith(">"))
 
 
-@cached("denovo[iva]")
+@cached("denovo[idba-ud]")
 def run_subprocess(
     fastq1: Path,
     fastq2: Path,
     merged_contigs_csv: Optional[Path],
 ) -> Path:
-    """
-    Run IVA de novo assembly subprocess.
-
-    Uses work_dir from WorkDir dynamic scoping for temporary file storage.
-    """
-    # Get work_dir from dynamic scope - required to be set by caller
-    work_dir = WorkDir.get()
-
-    old_tmp_dirs = work_dir.glob("assembly_*")
-    for old_tmp_dir in old_tmp_dirs:
-        rmtree(old_tmp_dir, ignore_errors=True)
-
-    tmp_dir = Path(mkdtemp(dir=work_dir, prefix="assembly_"))
-
-    joined_path = tmp_dir / "joined.fastq"
-    subprocess.run(
-        ["merge-mates", fastq1, fastq2, "--interleave", "-o", str(joined_path)],
-        check=True,
-        cwd=tmp_dir,
-    )
-    iva_out_path = tmp_dir / "iva_out"
-    contigs_fasta_path = iva_out_path / "contigs.fasta"
-    iva_args = [IVA, "--fr", str(joined_path), "-t", "2"]
-    if merged_contigs_csv is not None:
-        seeds_fasta_path = tmp_dir / "seeds.fasta"
-        with open(seeds_fasta_path, "w") as seeds_fasta, \
-             merged_contigs_csv.open() as merged_contigs_reader:
-            SeqIO.write(
-                (
-                    SeqRecord(Seq(row["contig"]), f"seed-{i}", "", "")
-                    for i, row in enumerate(DictReader(merged_contigs_reader))
-                ),
-                seeds_fasta,
-                "fasta",
-            )
-            seeds_size = seeds_fasta.tell()
-        if seeds_size > 0:
-            iva_args.extend(["--contigs", str(seeds_fasta_path), "--make_new_seeds"])
-    iva_args.append(str(iva_out_path))
-    try:
-        subprocess.run(iva_args, check=True, stdout=PIPE, stderr=STDOUT)
-    except CalledProcessError as ex:
-        output = ex.output and ex.output.decode("UTF8")
-        if output != "Failed to make first seed. Cannot continue\n":
-            logger.warning("iva failed to assemble.", exc_info=True)
-            logger.warning(output)
-        contigs_fasta_path.touch()
-
-    return contigs_fasta_path
+    """Execute the fixed idba-ud assembler, not a runtime selector."""
+    from micall.core.benchmark_assembler import assemble
+    return assemble(fastq1, fastq2, merged_contigs_csv)
 
 
 def denovo(
