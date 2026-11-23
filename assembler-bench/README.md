@@ -30,9 +30,16 @@ bridge and native binary SHA256 before finalising. Supply build arguments:
 branch's exact 40-character commit), `TOOL_IMAGE_ID` (immutable donor image
 ID), `TOOL_BINARY_SHA256` (the attested SHA above), `MICALL_ADAPTER_SHA256`
 and `MICALL_DENOVO_SHA256` (sha256 of the two committed source files).
+The pinned upstream SKESA implementation can throw exactly
+`Was not able to assemble anything` when no contigs exist, leaving no output
+FASTA and exiting with code 1. The dedicated adapter accepts **only** that
+verified trailing native diagnostic as a valid empty FASTA. All other nonzero
+exits, mismatched trailing diagnostics and output collisions fail closed.
+See the focused tests. This does not alter frozen MiCall or other assemblers.
+
 No image digest or pilot result is asserted by this source commit; image and
 canary status remain separate, capacity-gated steps.
 
 Source SHA256 for this tree's changed files (recomputed by the image guards):
-`benchmark_assembler.py` `0f6865975d64512228b81ad77b293f907383cd087915178b81843ae4388bb277`,
+`benchmark_assembler.py` `3a6061f8eece3207ed40422d2edf1d9f751eabc87a9866d2674f9d1f9848a5bb`,
 `denovo.py` `c622f0371901de682b5ea6c2486e2ccedc7793421401ca186d5c9d4938a05230`.

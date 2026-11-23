@@ -80,6 +80,42 @@ def test_zero_contig_assembly_is_a_valid_empty_fasta(tmp_path, monkeypatch):
     assert output.read_text() == ""
 
 
+def test_native_no_contig_exit_one_is_valid_empty_fasta(tmp_path, monkeypatch):
+    first, second = sample_reads(tmp_path)
+
+    def run(argv, **kwargs):
+        kwargs["stdout"].write(b"Contigs out: 0\nWas not able to assemble anything\n")
+        raise subprocess.CalledProcessError(1, argv)
+
+    monkeypatch.setattr(adapter.subprocess, "run", run)
+    destination = tmp_path / "clinical-contigs.fasta"
+    with WorkDir.using(tmp_path):
+        denovo(first, second, destination)
+    assert destination.is_file()
+    assert destination.read_bytes() == b""
+
+
+@pytest.mark.parametrize(("returncode", "diagnostic", "preexisting"), [
+    (2, b"Was not able to assemble anything\n", False),
+    (1, b"Other assembler error\n", False),
+    (1, b"Was not able to assemble anything\nAdditional failure\n", False),
+    (1, b"Was not able to assemble anything\n", True),
+])
+def test_noncanonical_native_failures_are_not_masked(
+        tmp_path, monkeypatch, returncode, diagnostic, preexisting):
+    first, second = sample_reads(tmp_path)
+
+    def run(argv, **kwargs):
+        kwargs["stdout"].write(diagnostic)
+        if preexisting:
+            (Path(kwargs["cwd"]) / adapter.CONTIGS_FASTA).write_text("invalid")
+        raise subprocess.CalledProcessError(returncode, argv)
+
+    monkeypatch.setattr(adapter.subprocess, "run", run)
+    with WorkDir.using(tmp_path), pytest.raises(subprocess.CalledProcessError):
+        adapter.assemble(first, second, None)
+
+
 def test_missing_fasta_fails_closed(tmp_path, monkeypatch):
     first, second = sample_reads(tmp_path)
 
