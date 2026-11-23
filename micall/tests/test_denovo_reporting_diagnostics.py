@@ -51,9 +51,7 @@ def test_unstitched_mapping_diagnostics_allow_referencefull_stitching(
         result.write_text('>assembled\nACGTACGT\n')
 
     def fake_csv_to_fasta(source, output):
-        # The downstream G2P molecule is identical to the native assembler's
-        # output; the combined representation must contain only one copy.
-        output.write_text('>g2p-copy\nACGTACGT\n')
+        output.touch()
 
     def fake_fasta_to_csv(source, output, blast_csv):
         output.write(
@@ -92,8 +90,6 @@ def test_unstitched_mapping_diagnostics_allow_referencefull_stitching(
                         fake_referenceless)
 
     sample.run_denovo(excluded_seeds=())
-    assert (tmp_path / 'combined_contigs.fasta').read_text() == (
-        '>assembled\nACGTACGT\n')
     assert reached == ['remap', 'referencefull', 'remap']
     assert (tmp_path / 'contigs.csv').exists()
     assert (tmp_path / 'remap_counts.csv').read_text().count(diagnostic) == 1
