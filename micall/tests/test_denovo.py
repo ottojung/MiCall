@@ -21,6 +21,7 @@ def normalize_fasta(content: str) -> str:
 
 
 @mark.iva()  # skip with -k-iva
+@mark.skip(reason="IVA-only golden assembly; this branch fixes penguin as its assembler")
 def test_denovo_iva(tmpdir, hcv_db):
     tmpdir = Path(tmpdir)
     microtest_path = Path(__file__).parent / 'microtest'
