@@ -47,7 +47,7 @@ def test_only_fixed_assembler_is_invoked(tmp_path, monkeypatch):
     assert argv[0] == TOOL
     assert f"in={first},{second}" in argv
     assert f"out={expected_output(Path(kwargs['cwd']))}" in argv
-    assert "mode=assemble" in argv
+    assert "mode=contig" in argv
     assert "k=62" in argv
     assert kwargs["check"] is True
     assert kwargs["stdout"] is not None
@@ -122,3 +122,8 @@ def test_denovo_bridge_uses_fixed_assembler_without_runtime_selector(tmp_path,
         result = denovo.run_subprocess.__wrapped__(first, second, None)
     assert result == tmp_path / "bridged.fasta"
     assert calls == [(first, second, None)]
+
+
+def test_uses_pinned_bbtools_contig_mode():
+    assert '"mode=contig"' in Path("micall/core/benchmark_assembler.py").read_text()
+    assert "mode=assemble" not in Path("micall/core/benchmark_assembler.py").read_text()

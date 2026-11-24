@@ -7,16 +7,20 @@ from micall.utils.work_dir import WorkDir
 
 
 def assemble(first: Path, second: Path, seeds: Path | None) -> Path:
-    """Run tadpole assemble mode with fixed CLI options and the paired reads."""
+    """Run pinned tadpole contig mode with fixed CLI and paired reads.
+
+    The pinned BBTools source accepts contig/graph/extend/correct/insert/discard;
+    The legacy word assemble is rejected with Unknown mode.
+    """
     parent = WorkDir.get()
     for leftover in parent.glob("assembly_*"):
         rmtree(leftover, ignore_errors=True)
     work = Path(mkdtemp(dir=parent, prefix="assembly_"))
     output = work / "tadpole-contigs.fa"
-    # BBTools twin-file syntax in=R1,R2; mode=assemble never takes ref=.
+    # BBTools twin-file syntax in=R1,R2; fixed contig mode never takes ref=.
     steps = [[
         "tadpole.sh", f"in={first},{second}", f"out={output}",
-        "mode=assemble", "k=62",
+        "mode=contig", "k=62",
     ]]
     with (work / "assembler.log").open("wb") as log:
         for argv in steps:
