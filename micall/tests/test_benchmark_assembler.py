@@ -23,7 +23,7 @@ def expected_output(work):
     return work / "tadpole-contigs.fa"
 
 
-def write_output(work, content=">contig\nACGT\n"):
+def write_output(work, content=">contig_0\nACGT\n"):
     output = expected_output(work)
     output.write_text(content)
     return output
@@ -41,7 +41,7 @@ def test_only_fixed_assembler_is_invoked(tmp_path, monkeypatch):
     monkeypatch.setattr("micall.core.benchmark_assembler.subprocess.run", fake_run)
     with WorkDir.using(tmp_path):
         output = assemble(first, second, None)
-    assert output.read_text() == ">contig\nACGT\n"
+    assert output.read_text() == ">contig_0\nACGT\n"
     assert len(calls) == 1
     argv, kwargs = calls[0]
     assert argv[0] == TOOL
@@ -113,7 +113,7 @@ def test_denovo_bridge_uses_fixed_assembler_without_runtime_selector(tmp_path,
     def fake_assemble(fastq1, fastq2, seeds):
         calls.append((fastq1, fastq2, seeds))
         output = tmp_path / "bridged.fasta"
-        output.write_text(">contig\nACGT\n")
+        output.write_text(">contig_0\nACGT\n")
         return output
 
     monkeypatch.setattr("micall.core.benchmark_assembler.assemble", fake_assemble)
@@ -127,3 +127,11 @@ def test_denovo_bridge_uses_fixed_assembler_without_runtime_selector(tmp_path,
 def test_uses_pinned_bbtools_contig_mode():
     assert '"mode=contig"' in Path("micall/core/benchmark_assembler.py").read_text()
     assert "mode=assemble" not in Path("micall/core/benchmark_assembler.py").read_text()
+
+
+def test_sanitize_headers_preserves_sequences(tmp_path):
+    f = tmp_path / 'raw.fa'
+    f.write_text('>contig_0,len=9,class=x/y\nACGT\n>n2,cov=3\nTTTT\n')
+    from micall.core.benchmark_assembler import _sanitize_headers
+    _sanitize_headers(f)
+    assert f.read_text() == '>contig_0\nACGT\n>contig_1\nTTTT\n'
