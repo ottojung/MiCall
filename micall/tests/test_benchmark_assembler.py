@@ -79,9 +79,9 @@ def test_config_uses_only_validated_paired_fastq(tmp_path, monkeypatch):
     assert len(configs) == 1
     text = configs[0]
     assert text == soapdenovo2_config_text(first, second)
-    assert text.startswith("max_rd_len=100\n[LIB]\n")
+    assert text.startswith("max_rd_len=251\n[LIB]\n")
     for key in ("avg_ins=200", "reverse_seq=0", "asm_flags=3",
-                "rd_len_cutoff=100", "rank=1", "pair_num_cutoff=3",
+                "rd_len_cutoff=251", "rank=1", "pair_num_cutoff=3",
                 "map_len=32"):
         assert key + "\n" in text
     assert f"q1={first}\n" in text
@@ -138,3 +138,13 @@ def test_denovo_bridge_uses_fixed_assembler_without_runtime_selector(tmp_path,
         result = denovo.run_subprocess.__wrapped__(first, second, None)
     assert result == tmp_path / "bridged.fasta"
     assert calls == [(first, second, None)]
+
+
+def test_config_preserves_physical_251bp_mates(tmp_path):
+    first, second = sample_reads(tmp_path)
+    text = soapdenovo2_config_text(first, second)
+    assert "max_rd_len=251\n" in text
+    assert "rd_len_cutoff=251\n" in text
+    assert "max_rd_len=100" not in text
+    assert "q1=" + str(first) in text
+    assert "q2=" + str(second) in text

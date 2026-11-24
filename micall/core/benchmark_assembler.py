@@ -11,14 +11,18 @@ SOAPDENOVO2_PREFIX = "soapdenovo2_graph"
 
 
 def soapdenovo2_config_text(first: Path, second: Path) -> str:
-    """Exact upstream [LIB] grammar: paired FASTQ via q1/q2, no reference data."""
+    """Exact upstream [LIB] grammar: paired FASTQ via q1/q2, no reference data.
+
+    The physical cohort's trimmed mates are 251 bp; the upstream default of
+    100 truncates them and makes SOAPdenovo-63mer crash on that cohort.
+    """
     return (
-        "max_rd_len=100\n"
+        "max_rd_len=251\n"
         "[LIB]\n"
         "avg_ins=200\n"
         "reverse_seq=0\n"
         "asm_flags=3\n"
-        "rd_len_cutoff=100\n"
+        "rd_len_cutoff=251\n"
         "rank=1\n"
         "pair_num_cutoff=3\n"
         "map_len=32\n"
