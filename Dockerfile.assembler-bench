@@ -22,9 +22,16 @@ COPY micall/core/assembler_commands.py /opt/venv/lib/python3.12/site-packages/mi
 COPY micall/core/assembler_dispatch.py /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py
 RUN test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_commands.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_COMMANDS_SHA256}"     && test "$(sha256sum /opt/venv/lib/python3.12/site-packages/micall/core/assembler_dispatch.py | cut -d' ' -f1)" = "${MICALL_ADAPTER_DISPATCH_SHA256}"     && /opt/venv/bin/python -c "from micall.core.assembler_commands import ASSEMBLERS; assert 'savage' in ASSEMBLERS"
 RUN test "${MICALL_DENOVO_ASSEMBLER}" = "savage"
+# python2.7 is required by HaploConduct/SAVAGE (Python 2) but is not in Debian
+# bookworm; install it from the bullseye archive. python-scipy is not needed for
+# the reference-free de-novo paired-FASTQ flow (only scripts/min_ev_table.py).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      g++ make libboost-all-dev python2.7 python-scipy ncbi-blast+ git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+      g++ make libboost-all-dev ncbi-blast+ git ca-certificates \
+    && echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list.d/bullseye.list \
+    && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid \
+    && apt-get update && apt-get install -y --no-install-recommends python2.7 \
+    && ln -sf /usr/bin/python2.7 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/bullseye.list /etc/apt/apt.conf.d/99no-check-valid
 # Pinned SAVAGE in de-novo-only mode: paired FASTQs via -p1/-p2, never --ref
 # and never --count_strains (both require a reference genome).
 RUN git clone --quiet ${TOOL_SOURCE_REPO} /src/haploconduct \
