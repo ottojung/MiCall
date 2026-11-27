@@ -26,10 +26,26 @@ exploratory tool and no frozen seven tool or clinical source is changed.
   2026-11-21. SPAdes 3.15.5 is the minimum-compatible line documented by this
   Unicycler commit (v3.14.0 or later required).
 
-The independently attested `TOOL_BINARY_SHA256` build argument is the SHA256 of
-the compiled `/opt/spades/bin/spades-core`; the Dockerfile checks it with
-`sha256sum -c` and fails closed on mismatch. No SHA is inferred or fabricated by
-this source commit.
+Two independently attested binary digests are required; neither is inferred or
+fabricated by this source commit. `SPADES_BINARY_SHA256` attests the compiled
+`/opt/spades/bin/spades-core` built from the pinned SPAdes commit, while
+`TOOL_BINARY_SHA256` attests Unicycler's compiled native module
+`/opt/Unicycler/unicycler/cpp_functions.so`. The Dockerfile checks each with
+`sha256sum -c` and fails closed on mismatch. Both binaries are compiled from
+pinned source (Unicycler's Makefile uses `-O3 -mtune=native`), so their digests
+are properties of the actual guarded build, not constants that can be honestly
+pre-pinned from upstream source alone.
+
+Independently re-verified on 2026-11-27 with authenticated HTTPS `git ls-remote`:
+Unicycler `HEAD` and `refs/heads/main` both equal
+`1429301eb24df9162f3c9386e8522f942594ae42`, and SPAdes `refs/tags/v3.15.5`
+equals `896694ce5c7a9050a6ffa9fccc950a4cd9f04363`. Content digests of the exact
+codeload source archives are
+`62cb582468f18b3597e818990f4a6d15e58d3115300695eb92f776b5f549512e` (Unicycler,
+17,627,939 bytes) and
+`6d60324dc37c99f0ffd6a4bc8981dd6ba2de756fa48a92b2e4661c29c905294c` (SPAdes,
+15,314,749 bytes). These attest source bytes only: no image was built, no
+binary digest was produced, and no pilot was run by this source increment.
 
 This image is experimental and excluded from the seven-way acceptance, the Psi
 qualification matrix and all release gates. No image digest or pilot result is

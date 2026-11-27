@@ -162,3 +162,14 @@ def test_unicycler_and_spades_native_artifacts_verified_separately():
     assert 'TOOL_BINARY_SHA256}  /opt/spades/bin/spades-core' not in docker
     assert 'TOOL_BINARY_SHA256}  /opt/Unicycler/unicycler/cpp_functions.so' in docker
     assert "org.ottojung.exploratory.spades-binary-sha256|$spades_bin_sha" in builder
+
+
+def test_documentation_keeps_native_and_spades_digests_separate():
+    root = Path(__file__).resolve().parents[2]
+    readme = (root / "assembler-bench/README.md").read_text()
+    docs = (root / "docs/assembler-bench-integrations.md").read_text()
+    for text in (readme, docs):
+        assert "SPADES_BINARY_SHA256" in text
+        assert "TOOL_BINARY_SHA256" in text
+        assert "cpp_functions.so" in text
+    assert "TOOL_BINARY_SHA256` build argument is the SHA256 of" not in readme

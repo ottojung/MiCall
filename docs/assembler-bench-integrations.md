@@ -77,3 +77,14 @@ hidden. The image contains no frozen seven tool. This profile is experimental,
 must be built only by the guarded launcher, and is excluded from qualification
 and release. No image digest or pilot result is asserted by this source commit.
 
+Native artifact provenance is kept separate: `SPADES_BINARY_SHA256` attests the
+compiled `spades-core`, and `TOOL_BINARY_SHA256` attests the compiled Unicycler
+`cpp_functions.so`. Both are checked with `sha256sum -c` at image build time and
+must come from independent attestation of a real guarded build. On 2026-11-27
+the exact source pins were re-derived over authenticated HTTPS `git ls-remote`
+(Unicycler HEAD/main `1429301eb24df9162f3c9386e8522f942594ae42`; SPAdes tag
+`v3.15.5` `896694ce5c7a9050a6ffa9fccc950a4cd9f04363`), with codeload archive
+SHA256 digests `62cb582468f18b3597e818990f4a6d15e58d3115300695eb92f776b5f549512e`
+and `6d60324dc37c99f0ffd6a4bc8981dd6ba2de756fa48a92b2e4661c29c905294c`.
+Source-byte verification is not binary attestation, an image digest or a pilot
+result; none of those is claimed here.
