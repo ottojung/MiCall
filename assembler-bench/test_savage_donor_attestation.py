@@ -28,6 +28,19 @@ def main() -> int:
     if len(hashes) < 4:
         print("too few hashes", len(hashes))
         return 1
+    plan = Path(__file__).with_name("savage-dry-plan-20261128.md")
+    pt = plan.read_text(encoding="utf-8")
+    for s in [
+        "e5cf3fdf13401885e8eea8170624ec96225e2174eb0c611c6f26dd33b489e3ff",
+        "4b41a2badc29877c28a0e903fe7df29a6666a220",
+        "VIRAL_QUASISPECIES_BUILD_SHA256",
+        "QC_BINARIES_BUILD_SHA256",
+        "twfJQwQwe22fWGSKuhOXwm-walrus",
+        "NOT executed",
+    ]:
+        if s not in pt:
+            print("PLAN MISSING", s)
+            return 1
     print("ok", len(hashes))
     return 0
 
