@@ -6,6 +6,12 @@ paths and all provenance stay on the authorized host; this document is
 public-safe (content-addressed values only). Static checks in this dir are
 **not** build evidence.
 
+Superseded execution estimate: the later exact guarded low-space build in
+`assembler-bench/lowspace/` replaces this document's single-stage 8 GiB
+plan with three pinned stages and a 2 GiB usable-above-reserve budget. This
+document is retained for recipe-semantics audit only; do not execute its
+single-stage command template.
+
 ## 1. NumPy 1.16.6 source archive — staged, verified
 
 - Pinned SHA-256: `e5cf3fdf13401885e8eea8170624ec96225e2174eb0c611c6f26dd33b489e3ff`

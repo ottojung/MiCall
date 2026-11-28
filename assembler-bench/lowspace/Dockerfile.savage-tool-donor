@@ -1,0 +1,49 @@
+# SAVAGE low-space stage 2: donor binary + quick-cliques built from the exact
+# pinned source. No apt, no network and no reference-dependent SAVAGE mode are
+# used. NumPy/SciPy are deliberately absent: the pinned source imports scipy
+# only in scripts/min_ev_table.py, which is not in the de-novo code path.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG HAPLOCONDUCT_COMMIT=24e4d9fc35ef6a93e336949a9a8f98ed4ceef362
+ARG QUICKCLIQUES_SOURCE_TREE_SHA1=4b41a2badc29877c28a0e903fe7df29a6666a220
+ARG HAPLOCONDUCT_ARCHIVE_SHA256=09cad6b864206300caaa543d7df1aab6ac80ba63c80ff66d99bfdba67b87f19e
+ARG HAPLOCONDUCT_MANIFEST_SHA256=f1a05a2c077624736118e0d16b2d9514e1ee24f1b02086a6a021ecbb595859ef
+ARG HAPLOCONDUCT_PROVENANCE_SHA256=5be07d4848307eb0613380cfc27f342fed8292e3e3ac8c4733f71d4a830f410f
+ARG VIRAL_QUASISPECIES_SHA256=199d97b7330df213f0adf99aaebb8f74d59806dfe90379f15dea28f0aa0c6590
+COPY haploconduct-24e4d9fc.tar.gz /src/donor/haploconduct-24e4d9fc.tar.gz
+COPY haploconduct-source-manifest.sha256 /src/donor/haploconduct-source-manifest.sha256
+COPY haploconduct-source-provenance.txt /src/donor/haploconduct-source-provenance.txt
+COPY ViralQuasispecies /src/donor/ViralQuasispecies
+RUN test "${#HAPLOCONDUCT_COMMIT}" -eq 40 \
+    && test "${#QUICKCLIQUES_SOURCE_TREE_SHA1}" -eq 40 \
+    && test "${#HAPLOCONDUCT_ARCHIVE_SHA256}" -eq 64 \
+    && test "${#HAPLOCONDUCT_MANIFEST_SHA256}" -eq 64 \
+    && test "${#HAPLOCONDUCT_PROVENANCE_SHA256}" -eq 64 \
+    && test "${#VIRAL_QUASISPECIES_SHA256}" -eq 64 \
+    && echo "${HAPLOCONDUCT_ARCHIVE_SHA256}  /src/donor/haploconduct-24e4d9fc.tar.gz" | sha256sum -c - \
+    && echo "${HAPLOCONDUCT_MANIFEST_SHA256}  /src/donor/haploconduct-source-manifest.sha256" | sha256sum -c - \
+    && echo "${HAPLOCONDUCT_PROVENANCE_SHA256}  /src/donor/haploconduct-source-provenance.txt" | sha256sum -c - \
+    && echo "${VIRAL_QUASISPECIES_SHA256}  /src/donor/ViralQuasispecies" | sha256sum -c - \
+    && grep -q "commit=${HAPLOCONDUCT_COMMIT}" /src/donor/haploconduct-source-provenance.txt \
+    && grep -q "tree SHA-1=${QUICKCLIQUES_SOURCE_TREE_SHA1}" /src/donor/haploconduct-source-provenance.txt \
+    && mkdir -p /tmp/haplo /opt/savage/bin /attestation \
+    && tar -xzf /src/donor/haploconduct-24e4d9fc.tar.gz -C /tmp/haplo \
+    && cd /tmp/haplo \
+    && sha256sum -c /src/donor/haploconduct-source-manifest.sha256 \
+    && make -j2 -C quick-cliques \
+    && test -x quick-cliques/bin/qc \
+    && test -x quick-cliques/bin/printnm \
+    && test -x quick-cliques/bin/compdegen \
+    && (cd quick-cliques/bin && sha256sum qc printnm compdegen > /attestation/QC_SHA256SUMS) \
+    && sha256sum /attestation/QC_SHA256SUMS | cut -d' ' -f1 > /attestation/qc-bundle-sha256.txt \
+    && install -m 0755 /src/donor/ViralQuasispecies /opt/savage/bin/ViralQuasispecies \
+    && cp -a /tmp/haplo/. /opt/savage/ \
+    && printf '#!/bin/sh\nexec /opt/python27/bin/python2.7 /opt/savage/haploconduct savage "$@"\n' > /usr/local/bin/savage \
+    && chmod 0755 /usr/local/bin/savage \
+    && /opt/python27/bin/python2.7 -m py_compile /opt/savage/haploconduct.py /opt/savage/savage.py \
+    && cd / \
+    && { rm -rf /tmp/haplo /src/donor /root/.cache /var/cache/apt/archives/*.deb || true; }
+LABEL org.ottojung.exploratory.savage-lowspace-stage="tool-donor"
+LABEL org.ottojung.exploratory.haploconduct-commit="${HAPLOCONDUCT_COMMIT}"
+LABEL org.ottojung.exploratory.quick-cliques-source-tree-sha1="${QUICKCLIQUES_SOURCE_TREE_SHA1}"
+LABEL org.ottojung.exploratory.viral-quasispecies-donor-sha256="${VIRAL_QUASISPECIES_SHA256}"

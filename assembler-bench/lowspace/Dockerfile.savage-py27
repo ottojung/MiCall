@@ -1,0 +1,21 @@
+# SAVAGE low-space stage 1: Python 2.7.18 runtime from the exact cached donor.
+# No apt, no network, no source fetch. The base image digest is supplied by the
+# guarded build script and must already exist in the bound podman store.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG PYTHON27_ARCHIVE_SHA256=da3080e3b488f648a3d7a4560ddee895284c3380b11d6de75edb986526b9a814
+COPY Python-2.7.18.tgz /src/donor/Python-2.7.18.tgz
+RUN test "${#PYTHON27_ARCHIVE_SHA256}" -eq 64 \
+    && echo "${PYTHON27_ARCHIVE_SHA256}  /src/donor/Python-2.7.18.tgz" | sha256sum -c - \
+    && mkdir -p /tmp/py27-build \
+    && tar -xzf /src/donor/Python-2.7.18.tgz -C /tmp/py27-build \
+    && cd /tmp/py27-build/Python-2.7.18 \
+    && ./configure --prefix=/opt/python27 \
+    && make -j2 \
+    && make install \
+    && /opt/python27/bin/python2.7 --version 2>&1 | grep -q '2\.7\.18' \
+    && cd / \
+    && { rm -rf /tmp/py27-build /src/donor /root/.cache /var/cache/apt/archives/*.deb || true; }
+ENV PATH=/opt/python27/bin:${PATH}
+LABEL org.ottojung.exploratory.savage-lowspace-stage="py27"
+LABEL org.ottojung.exploratory.python27-archive-sha256="${PYTHON27_ARCHIVE_SHA256}"
