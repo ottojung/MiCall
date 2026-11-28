@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Static checks for savage-donor-attestation.md (no build/container)."""
+"""Static checks for SAVAGE donor attestation/dry plan (no build/container)."""
 from pathlib import Path
 import re
 import sys
 
 DOC = Path(__file__).with_name("savage-donor-attestation.md")
+PLAN = Path(__file__).with_name("savage-dry-plan-20261128.md")
 
 
 def main() -> int:
@@ -28,19 +29,30 @@ def main() -> int:
     if len(hashes) < 4:
         print("too few hashes", len(hashes))
         return 1
-    plan = Path(__file__).with_name("savage-dry-plan-20261128.md")
-    pt = plan.read_text(encoding="utf-8")
+
+    pt = PLAN.read_text(encoding="utf-8")
     for s in [
         "e5cf3fdf13401885e8eea8170624ec96225e2174eb0c611c6f26dd33b489e3ff",
         "4b41a2badc29877c28a0e903fe7df29a6666a220",
+        "ec45769285aaafe1068fc7ac164777343c11a508b1dae34b15aac2d83ed08876",
+        "git tree object ID (SHA-1",
         "VIRAL_QUASISPECIES_BUILD_SHA256",
         "QC_BINARIES_BUILD_SHA256",
         "twfJQwQwe22fWGSKuhOXwm-walrus",
         "NOT executed",
+        "Static checks in this dir are",
+        "not build evidence",
+        "Step A — donor/tool prebuild",
+        "Step B — final adapter image",
+        "no circular expected build SHA",
+        "Dockerfile.assembler-bench.savage.donor-pinned.corrected",
     ]:
         if s not in pt:
             print("PLAN MISSING", s)
             return 1
+    if "QUICKCLIQUES_SOURCE_TREE_SHA256 is a 40-char git tree SHA-1" in pt:
+        print("old misleading claim")
+        return 1
     print("ok", len(hashes))
     return 0
 
