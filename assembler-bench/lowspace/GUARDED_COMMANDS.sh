@@ -60,7 +60,9 @@ print('staged provenance OK:', len(doc['files']), 'entries')
 PY
 
 # Guard stage runner: redirect the CLI status dict without a pipeline, then
-# verify durable status/exit_code/lease/log-hash artifacts before continuing.
+# verify durable status/exit_code/lease owner+mode/log-hash artifacts before
+# continuing. Every stage, including the in-image attestation, is authorized
+# only in --mode build; no pilot mode is used by this build script.
 guard_and_verify() {
     label=$1
     hash_lines=$2
@@ -72,10 +74,16 @@ guard_and_verify() {
         --registry "$PX_REGISTRY" --baseline "$PX_BASELINE" \
         --tool savage-denovo --mode build --reserve-bytes 1073741824 -- \
         "$@" > "$status_file" 2>&1; then
-        summary=$(python3 "$SCRIPT_DIR/verify_guard_run.py" \
+        # set -- keeps the exact sha256sum line (hash, two spaces, path) as a
+        # single verifier argument; it is not shell word-split.
+        set -- python3 "$SCRIPT_DIR/verify_guard_run.py" \
             --root "$PX_ROOT" --marker "$marker" --status "$status_file" \
-            --tool savage-denovo --label "$label" \
-            --require-hash-lines "$hash_lines") || {
+            --tool savage-denovo --label "$label" --expect-mode build \
+            --require-hash-lines "$hash_lines"
+        if [ "$label" = attestation ]; then
+            set -- "$@" --expect-line "$VQ_DONOR_SHA  /opt/savage/bin/ViralQuasispecies"
+        fi
+        summary=$("$@") || {
             cat "$status_file" >&2
             exit 1
         }
@@ -118,9 +126,10 @@ S2_ID=$(CONTAINERS_STORAGE_CONF="$PX_ROOT/storage.conf" \
     podman image inspect "$S2_TAG" --format '{{.Id}}')
 echo "STAGE2 $S2_ID"
 
-# 3) In-image attestation through the same guarded CLI. The run log hash and
-#    two hashed attestation lines are verified before parsing their values.
-guard_and_verify attestation 2 \
+# 3) In-image attestation through the same guarded CLI. The run log hash, one
+#    bare QC-bundle hash and the exact VQ sha256sum line are verified before
+#    parsing their values; sha256sum prints "hash + path", not a bare hash.
+guard_and_verify attestation 1 \
     podman run --pull=never --network=none --rm --entrypoint /bin/sh \
     "$S2_TAG" -c 'set -eu
 sha256sum /opt/savage/bin/ViralQuasispecies

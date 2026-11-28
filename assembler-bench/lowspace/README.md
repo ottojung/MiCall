@@ -6,9 +6,13 @@ build and in-image attestation runs through
 `python3 -m assembler_bench.exploratory_runtime.cli`, exactly as the reviewed
 Unicycler donor workflow does. The CLI status dict is captured with a direct
 redirect (never a pipeline), and `verify_guard_run.py` then checks the durable
-run receipt, `status`, `exit_code`, closed lease state, build orphan-cleanup,
-job-temp removal and SHA-256 of the exact run log before the next stage.
-No direct `podman build`/`podman run`, no `timeout`, `--memory`,
+run receipt, `status`, `exit_code`, closed lease owner and mode, build
+orphan-cleanup, job-temp removal and SHA-256 of the exact `root/run-<id>.log`
+child log before the next stage. Every stage, including the in-image
+attestation, is authorized only in `--mode build` (never pilot), and attestation
+requires one bare QC-bundle hash plus the exact `sha256sum` line of the
+in-image `ViralQuasispecies` binary. No direct `podman build`/`podman run`,
+no `timeout`, `--memory`,
 `--cpuset-cpus`, advisory-lock grep, new guard protocol, STOP/lease
 manipulation, prune or registry mutation is performed.
 

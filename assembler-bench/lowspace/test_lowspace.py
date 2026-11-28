@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-"""Static checks for the guarded SAVAGE low-space build files (not build evidence)."""
+"""Static and authentic-format checks for the guarded SAVAGE low-space files.
+
+The functional checks build synthetic-but-authentic run receipts, lease
+journals and child logs in a temporary root; they are verifier tests, not
+build or pilot evidence.
+"""
 from pathlib import Path
+import hashlib
+import json
+import subprocess
 import sys
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 FILES = [
@@ -47,6 +56,7 @@ SCRIPT_REQUIRED = [x for x in COMMON_REQUIRED if x not in (
     "Containerfile.assembler-bench", "GUARDED_BUILD_DONE",
     "verify_guard_run.py", "--build-arg BASE_IMAGE=\"$BASE_IMAGE\"",
     "--require-hash-lines", "find \"$PX_ROOT\"", "GUARD_LOG",
+    "--expect-mode build", "--expect-line", "guard_and_verify attestation 1",
 ]
 
 MODULE_HASHES = [
@@ -60,6 +70,109 @@ MODULE_HASHES = [
     "bffdc90b703475aeb68f31c2df4334cb36a8912ebaba806cd7baee4d2bc18943",
     "406234797006f0a3e086633b13c61c3e392f913bca3c13ec340ed48d89e2ecb0",
 ]
+
+
+VQ_SHA = "199d97b7330df213f0adf99aaebb8f74d59806dfe90379f15dea28f0aa0c6590"
+QC_SHA = "ec45769285aaafe1068fc7ac164777343c11a508b1dae34b15aac2d83ed08876"
+VQ_LINE = VQ_SHA + "  /opt/savage/bin/ViralQuasispecies"
+IDENT = "savage-denovo-1795556326010183146"
+
+
+def _fixture(root, *, ident=IDENT, owner=None, omit_owner=False,
+             lease_mode="build", receipt_mode="build", log_text=None,
+             receipt_log_sha=None):
+    """Write an authentic-shape guarded run: marker, receipt, child log, lease."""
+    root = Path(root)
+    marker = root / "baseline.marker"
+    marker.write_text("run-savage-denovo-0.json\n", encoding="utf-8")
+    if log_text is None:
+        log_text = VQ_LINE + "\n" + QC_SHA + "\n"
+    log = root / ("run-" + ident + ".log")
+    log.write_text(log_text, encoding="utf-8")
+    digest = hashlib.sha256(log.read_bytes()).hexdigest()
+    receipt = {
+        "argv_sha256": "296aa4c99fce8cceb9e71bef201cbf424833584a2e245a48a950b364c3a15bbe",
+        "bound_cid": None,
+        "exit_code": 0,
+        "guard_result": {"cid": None, "teardown": {"process_group": 236954, "stopped": True}},
+        "job_temp_cleanup": {"path": "/px/tmp/job-" + ident, "removed": True},
+        "log_sha256": receipt_log_sha or digest,
+        "mode": receipt_mode,
+        "orphan_cleanup": {"cid": None, "stopped": True},
+        "peak_rss": 81313792,
+        "recorded_utc": 1795556396.074039,
+        "status": "finished",
+        "tool": "savage-denovo",
+    }
+    (root / ("run-" + ident + ".json")).write_text(
+        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
+    recorded_owner = owner or ident
+    common = {"cid": None, "cidfile": None, "lease": ident,
+              "schema": "ivanka.worker-lease.v1"}
+    events = [
+        {**common, "at_utc": 1795556326.0101936, "fingerprint": None,
+         "mode": lease_mode, "owner": recorded_owner, "pid": None, "state": "active"},
+        {**common, "at_utc": 1795556326.0190878,
+         "fingerprint": [431269357, 4026532737, "71e1f4ff5e4b4b6596b283e3fa8f09ac87a25d7983dd58f7d8913daafefad431"],
+         "mode": lease_mode, "owner": recorded_owner, "pid": 236954, "state": "active"},
+        {"at_utc": 1795556396.0690486, "cid": None, "lease": ident,
+         "owner": recorded_owner, "proof": {"cid": None, "stopped": True},
+         "schema": "ivanka.worker-lease.v1", "state": "released"},
+    ]
+    if omit_owner:
+        for event in events:
+            event.pop("owner", None)
+    (root / ".worker-lease.jsonl").write_text(
+        "\n".join(json.dumps(e, sort_keys=True) for e in events) + "\n",
+        encoding="utf-8")
+    status = root / "attestation.guard.txt"
+    status.write_text(
+        "{'status': 'finished', 'exit_code': 0, 'log_sha256': '%s'}\n" % digest,
+        encoding="utf-8")
+    return marker, status
+
+
+def _verify(root, marker, status):
+    cmd = [sys.executable, str(HERE / "verify_guard_run.py"),
+           "--root", str(root), "--marker", str(marker), "--status", str(status),
+           "--tool", "savage-denovo", "--label", "attestation",
+           "--expect-mode", "build", "--require-hash-lines", "1",
+           "--expect-line", VQ_LINE]
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def functional_checks():
+    """Check the verifier against authentic receipt/lease/log shapes."""
+    passed = []
+
+    def check(name, expect_ok, **kwargs):
+        with tempfile.TemporaryDirectory(prefix="savage-guard-") as tmp:
+            marker, status = _fixture(tmp, **kwargs)
+            result = _verify(tmp, marker, status)
+        if expect_ok:
+            if result.returncode != 0 or "GUARD_OK" not in result.stdout:
+                raise AssertionError("%s: rejected: %s" % (name, result.stderr.strip()))
+            if "lease_state=released" not in result.stdout or "mode=build" not in result.stdout:
+                raise AssertionError("%s: missing owner/mode attestation: %s" % (
+                    name, result.stdout.strip()))
+        else:
+            if result.returncode == 0:
+                raise AssertionError("%s: unexpectedly accepted: %s" % (
+                    name, result.stdout.strip()))
+        passed.append(name)
+
+    check("authentic build lease ident/owner/mode + VQ sha256sum and bare QC hash", True)
+    check("legacy owner-less lease uses lease id as owner", True, omit_owner=True)
+    check("non-timestamp lease ident rejected", False,
+          ident="savage-denovo-1795556326010183146-extra")
+    check("foreign lease owner rejected", False, owner="another-owner")
+    check("pilot lease mode rejected", False, lease_mode="pilot")
+    check("pilot receipt mode rejected", False, receipt_mode="pilot")
+    check("sha256sum line without bare QC hash rejected", False, log_text=VQ_LINE + "\n")
+    check("bare QC hash with wrong VQ line rejected", False,
+          log_text=QC_SHA + "\n" + "0" * 64 + "  /opt/savage/bin/ViralQuasispecies\n")
+    check("wrong child-log hash rejected", False, receipt_log_sha="0" * 64)
+    return passed
 
 
 def main() -> int:
@@ -97,9 +210,10 @@ def main() -> int:
         return 1
     helper = (HERE / "verify_guard_run.py").read_text(encoding="utf-8")
     for token in [
-        "parse_status", "find_receipt", "lease_last", "log_sha256",
-        "exit_code", "active_unreleased", "orphan_cleanup",
-        "job_temp_cleanup", "CLOSED", "HASH64", "GUARD_OK",
+        "parse_status", "find_receipt", "lease_last", "lease_identity",
+        "log_sha256", "exit_code", "active_unreleased", "orphan_cleanup",
+        "job_temp_cleanup", "CLOSED", "HASH64", "GUARD_OK", "removeprefix",
+        "expect_mode", "expect_line", "bare_hashes",
     ]:
         if token not in helper:
             print("HELPER MISSING", token)
@@ -128,7 +242,8 @@ def main() -> int:
     if "ViralQuasispecies" not in donor or "QC_SHA256SUMS" not in donor:
         print("DONOR HASH GATE MISSING")
         return 1
-    print("ok")
+    checks = functional_checks()
+    print("ok (%d authentic-format checks)" % len(checks))
     return 0
 
 
