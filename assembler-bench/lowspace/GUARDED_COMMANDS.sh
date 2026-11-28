@@ -43,6 +43,7 @@ test -z "$(git -C "$PX_ADAPTER_CHECKOUT" status --porcelain)" \
 test -f "$PX_ROOT/storage.conf" || { echo 'storage.conf missing' >&2; exit 1; }
 test -f "$PX_ADAPTER_CHECKOUT/Containerfile.assembler-bench" \
     || { echo 'adapter Containerfile missing' >&2; exit 1; }
+test -f "$SCRIPT_DIR/verify_guard_run.py" || { echo 'guard verifier missing' >&2; exit 1; }
 
 # 0) staged provenance before any OCI action (read-only, like Unicycler).
 python3 - "$PX_DONOR_DIR/PROVENANCE.json" "$PX_DONOR_DIR/context" "$SCRIPT_DIR" <<'PY'
@@ -58,23 +59,52 @@ for rel, meta in doc['files'].items():
 print('staged provenance OK:', len(doc['files']), 'entries')
 PY
 
-# Shared guarded launcher: no direct podman build/run anywhere in this script.
-guard_build() {
-    PYTHONPATH="$PY" python3 -m assembler_bench.exploratory_runtime.cli \
+# Guard stage runner: redirect the CLI status dict without a pipeline, then
+# verify durable status/exit_code/lease/log-hash artifacts before continuing.
+guard_and_verify() {
+    label=$1
+    hash_lines=$2
+    shift 2
+    marker="$PX_DONOR_DIR/$label.marker"
+    status_file="$PX_DONOR_DIR/$label.guard.txt"
+    find "$PX_ROOT" -maxdepth 1 -type f -name 'run-savage-denovo-*.json' -print > "$marker"
+    if PYTHONPATH="$PY" python3 -m assembler_bench.exploratory_runtime.cli \
         --registry "$PX_REGISTRY" --baseline "$PX_BASELINE" \
-        --tool savage-denovo --mode build --reserve-bytes 1073741824 -- "$@"
+        --tool savage-denovo --mode build --reserve-bytes 1073741824 -- \
+        "$@" > "$status_file" 2>&1; then
+        summary=$(python3 "$SCRIPT_DIR/verify_guard_run.py" \
+            --root "$PX_ROOT" --marker "$marker" --status "$status_file" \
+            --tool savage-denovo --label "$label" \
+            --require-hash-lines "$hash_lines") || {
+            cat "$status_file" >&2
+            exit 1
+        }
+    else
+        rc=$?
+        cat "$status_file" >&2
+        exit "$rc"
+    fi
+    printf '%s\n' "$summary"
+    case "$summary" in
+        *" log="*) rest=${summary#*" log="}; GUARD_LOG="$PX_ROOT/${rest%% *}" ;;
+        *) echo 'guarded log path missing' >&2; exit 1 ;;
+    esac
+    test -f "$GUARD_LOG" || { echo 'guarded log unavailable' >&2; exit 1; }
 }
 
 # 1) Python 2.7.18 donor stage from the exact cached archive.
-guard_build podman build --pull=never --network=none --layers=false \
+guard_and_verify stage1 0 \
+    podman build --pull=never --network=none --layers=false \
+    --build-arg BASE_IMAGE="$BASE_IMAGE" \
     -f "$SCRIPT_DIR/Dockerfile.savage-py27" \
-    --tag "$S1_TAG" "$PX_DONOR_DIR/context" | tee "$PX_DONOR_DIR/stage1.log"
+    --tag "$S1_TAG" "$PX_DONOR_DIR/context"
 S1_ID=$(CONTAINERS_STORAGE_CONF="$PX_ROOT/storage.conf" \
     podman image inspect "$S1_TAG" --format '{{.Id}}')
 echo "STAGE1 $S1_ID"
 
 # 2) Tool donor stage: donor binary + quick-cliques from exact pinned source.
-guard_build podman build --pull=never --network=none --layers=false \
+guard_and_verify stage2 0 \
+    podman build --pull=never --network=none --layers=false \
     --build-arg BASE_IMAGE="$S1_ID" \
     --build-arg HAPLOCONDUCT_COMMIT=24e4d9fc35ef6a93e336949a9a8f98ed4ceef362 \
     --build-arg QUICKCLIQUES_SOURCE_TREE_SHA1=4b41a2badc29877c28a0e903fe7df29a6666a220 \
@@ -83,13 +113,15 @@ guard_build podman build --pull=never --network=none --layers=false \
     --build-arg HAPLOCONDUCT_PROVENANCE_SHA256="$HAPLO_PROVENANCE_SHA" \
     --build-arg VIRAL_QUASISPECIES_SHA256="$VQ_DONOR_SHA" \
     -f "$SCRIPT_DIR/Dockerfile.savage-tool-donor" \
-    --tag "$S2_TAG" "$PX_DONOR_DIR/context" | tee "$PX_DONOR_DIR/stage2.log"
+    --tag "$S2_TAG" "$PX_DONOR_DIR/context"
 S2_ID=$(CONTAINERS_STORAGE_CONF="$PX_ROOT/storage.conf" \
     podman image inspect "$S2_TAG" --format '{{.Id}}')
 echo "STAGE2 $S2_ID"
 
-# 3) In-image attestation through the same guarded CLI (no direct podman run).
-guard_build podman run --pull=never --network=none --rm --entrypoint /bin/sh \
+# 3) In-image attestation through the same guarded CLI. The run log hash and
+#    two hashed attestation lines are verified before parsing their values.
+guard_and_verify attestation 2 \
+    podman run --pull=never --network=none --rm --entrypoint /bin/sh \
     "$S2_TAG" -c 'set -eu
 sha256sum /opt/savage/bin/ViralQuasispecies
 cat /attestation/qc-bundle-sha256.txt
@@ -97,23 +129,23 @@ test -x /opt/savage/quick-cliques/bin/qc
 test -x /opt/savage/quick-cliques/bin/printnm
 test -x /opt/savage/quick-cliques/bin/compdegen
 test -x /usr/local/bin/savage
-grep -q "/opt/python27/bin/python2.7" /usr/local/bin/savage' \
-    | tee "$PX_DONOR_DIR/attestation.log"
-VQ_IN_IMAGE=$(awk -v want="$VQ_DONOR_SHA" '$1==want && $2=="/opt/savage/bin/ViralQuasispecies" {print $1}' \
-    "$PX_DONOR_DIR/attestation.log" | head -1)
-QC_BUNDLE_SHA=$(awk 'length($0)==64 && $0 ~ /^[0-9a-f]+$/ {print $0}' "$PX_DONOR_DIR/attestation.log" | tail -1)
+grep -q "/opt/python27/bin/python2.7" /usr/local/bin/savage'
+VQ_IN_IMAGE=$(awk -v want="$VQ_DONOR_SHA" \
+    '$1==want && $2=="/opt/savage/bin/ViralQuasispecies" {print $1}' "$GUARD_LOG")
+QC_BUNDLE_SHA=$(awk 'length($0)==64 && $0 ~ /^[0-9a-f]+$/ {print $0}' "$GUARD_LOG")
 test "$VQ_IN_IMAGE" = "$VQ_DONOR_SHA" || { echo 'in-image donor hash mismatch' >&2; exit 1; }
 test "${#QC_BUNDLE_SHA}" -eq 64 || { echo 'QC bundle hash missing' >&2; exit 1; }
 
 # 4) Final frozen SAVAGE adapter image over the attested donor image.
-guard_build podman build --pull=never --network=none --layers=false \
+guard_and_verify final 0 \
+    podman build --pull=never --network=none --layers=false \
     -f "$PX_ADAPTER_CHECKOUT/Containerfile.assembler-bench" \
     --tag "$FINAL_TAG" \
     --build-arg ASSEMBLER_TOOL_IMAGE="$S2_ID" \
     --build-arg MICALL_BASE_COMMIT=8458f9e5d34c39a6694b1fb6a40e055d7ce89553 \
     --build-arg MICALL_SOURCE_COMMIT="$EXPECTED_ADAPTER" \
     --build-arg TOOL_IMAGE_ID="$S2_ID" \
-    "$PX_ADAPTER_CHECKOUT" | tee "$PX_DONOR_DIR/final.log"
+    "$PX_ADAPTER_CHECKOUT"
 FINAL_ID=$(CONTAINERS_STORAGE_CONF="$PX_ROOT/storage.conf" \
     podman image inspect "$FINAL_TAG" --format '{{.Id}}')
 FINAL_REV=$(CONTAINERS_STORAGE_CONF="$PX_ROOT/storage.conf" \

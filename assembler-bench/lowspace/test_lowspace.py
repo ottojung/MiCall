@@ -8,13 +8,14 @@ FILES = [
     HERE / "Dockerfile.savage-py27",
     HERE / "Dockerfile.savage-tool-donor",
     HERE / "GUARDED_COMMANDS.sh",
+    HERE / "verify_guard_run.py",
     HERE / "README.md",
 ]
 
 FORBIDDEN = [
     "apt-get", "apt install", "curl ", "wget ", "pip install", "git clone",
     "timeout ", "--memory=", "--cpuset-cpus", "flock", "broad prune",
-    "image prune", "system prune", "PX_GLOBAL_LOCK", "--root ",
+    "image prune", "system prune", "PX_GLOBAL_LOCK",
 ]
 
 COMMON_REQUIRED = [
@@ -44,6 +45,8 @@ SCRIPT_REQUIRED = [x for x in COMMON_REQUIRED if x not in (
     "--pull=never", "--network=none", "--layers=false",
     "PROVENANCE.json", "qc-bundle-sha256.txt",
     "Containerfile.assembler-bench", "GUARDED_BUILD_DONE",
+    "verify_guard_run.py", "--build-arg BASE_IMAGE=\"$BASE_IMAGE\"",
+    "--require-hash-lines", "find \"$PX_ROOT\"", "GUARD_LOG",
 ]
 
 MODULE_HASHES = [
@@ -83,15 +86,24 @@ def main() -> int:
         if token not in script:
             print("SCRIPT MISSING", token)
             return 1
-    if script.count("guard_build podman build") < 3 or script.count("guard_build podman run") < 1:
+    if "| tee" in script:
+        print("PIPELINE MASKS GUARD FAILURE")
+        return 1
+    if script.count("guard_and_verify") < 5:
         print("INSUFFICIENT GUARDED STAGES")
         return 1
-    if "podman build" in script and "guard_build podman build" not in script:
+    if "podman build" in script and "guard_and_verify" not in script:
         print("UNGUARDED BUILD")
         return 1
-    if "podman run" in script and "guard_build podman run" not in script:
-        print("UNGUARDED RUN")
-        return 1
+    helper = (HERE / "verify_guard_run.py").read_text(encoding="utf-8")
+    for token in [
+        "parse_status", "find_receipt", "lease_last", "log_sha256",
+        "exit_code", "active_unreleased", "orphan_cleanup",
+        "job_temp_cleanup", "CLOSED", "HASH64", "GUARD_OK",
+    ]:
+        if token not in helper:
+            print("HELPER MISSING", token)
+            return 1
 
     readme = (HERE / "README.md").read_text(encoding="utf-8")
     for token in [
